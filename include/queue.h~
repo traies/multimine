@@ -1,0 +1,13 @@
+#ifndef QUEUE_H
+#define QUEUE_H
+
+typedef struct
+{
+     Q_node * first;
+     Q_node * last;
+} Queue;
+
+int64_t enque(Queue * q, void * t);
+void * deque(Queue * q);
+
+#endif

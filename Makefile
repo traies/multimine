@@ -1,14 +1,15 @@
 CC=gcc
 LIBS=-lncurses
 
-SRC_DIR=.
+SRC=$(wildcard *.c)
+OBJ=$(SRC:.c=.o)
 BIN_DIR=./bin
 BINS = ${BIN_DIR}/client
 
-${BIN_DIR}/%: %.o
-	${CC} -o $@.out $< ${LIBS}
+${BIN_DIR}/%: $(OBJ)
+	$(CC) -o $@.out $(OBJ) $(LIBS)
 
-%.o: 	${SRC_DIR}/%.c
-	${CC} -o $@ -c $<
-all:	${BINS}
-clean: @rm -f ${BINS}
+%.o: 	%.c
+	$(CC) -o $@ -c $< -I./include 
+all:	$(BINS)
+clean: @rm -f $(BINS)
