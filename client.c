@@ -246,7 +246,14 @@ int main()
 	       wattrset(win2, COLOR_PAIR(4));
 	       draw_minefield(win2,mine_buffer_2,cols-2, rows-2, 3, 4);
 	       wrefresh(win2);
-	       move(y,x);
+	       
+	       win3 = create_window(win_h * 2, win_w / 2, (LINES - win_h) / 2 - 5, (COLS - win_w) / 2 + win_w);
+	       update_mines(win3, mines);
+	       update_utiles(win3, utiles);
+	       update_marks(win3, marks);
+	       wrefresh(win3);
+	       wmove(win2,y,x);
+	       wrefresh(win2);
 	       break;
 	  default:
 	       break;
