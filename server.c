@@ -20,7 +20,7 @@
 struct Sector;
 struct SectorNode;
 
-typedef struct 
+typedef struct
 {
 
      int64_t x, y;
@@ -76,7 +76,7 @@ Minefield_p create_minefield(int64_t cols, int64_t rows, int64_t mines)
      void * t;
      Tile * tile;
 
-     /* allocate auxiliar structures */ 
+     /* allocate auxiliar structures */
      rand_arr = malloc(sizeof(int64_t) * size);
      mine_arr = malloc(sizeof(int64_t) * mines);
      /* allocate minefield */
@@ -148,7 +148,7 @@ Minefield_p create_minefield(int64_t cols, int64_t rows, int64_t mines)
 	       }
 	  }
      }
-     
+
      /* free auxiliar arrays */
      free(rand_arr);
      free(mine_arr);
@@ -159,7 +159,7 @@ Minefield_p create_minefield(int64_t cols, int64_t rows, int64_t mines)
 	  free_minefield(minefield);
 	  minefield = NULL;
      }
-     return minefield;     
+     return minefield;
 }
 
 /* constructs mine sectors on minefield initialization */
@@ -167,7 +167,7 @@ int8_t construct_sectors(Minefield * m)
 {
      Tile * t;
      int8_t malloc_error = FALSE;
-     
+
      if (!m){
 	  return -1;
      }
@@ -187,10 +187,10 @@ int8_t construct_sectors(Minefield * m)
 	       }
 	  }
      }
-     return malloc_error;	  
+     return malloc_error;
 }
 
-/* multiple tile sector initialization */     
+/* multiple tile sector initialization */
 int8_t multi_sector(Minefield * m, int64_t x, int64_t y)
 {
      int8_t malloc_error = FALSE;
@@ -208,7 +208,7 @@ int8_t multi_sector(Minefield * m, int64_t x, int64_t y)
      if(malloc_error) {
 	  return -1;
      }
-     
+
      while (!malloc_error && peek(q)) {
 	  t = deque(q);
 	  if (!t){
@@ -250,7 +250,7 @@ int8_t multi_sector(Minefield * m, int64_t x, int64_t y)
 }
 
 /* solo tile sector initialization */
-int8_t solo_sector(Tile * t) 
+int8_t solo_sector(Tile * t)
 {
      Sector * s = malloc(sizeof(Sector));
      if (!s || !t) {
@@ -301,7 +301,7 @@ void free_minefield(Minefield_p m)
      return;
 }
 
-void free_tile(Tile * t) 
+void free_tile(Tile * t)
 {
      if (!t) {
 	  return;
@@ -335,7 +335,7 @@ int64_t uncover_sector(Minefield_p m, int64_t x, int64_t y, int64_t (*retbuf)[3]
      Tile * t;
      Sector * s;
      SectorNode * sn;
-     
+
      if (!m || x < 0 || x > m->cols || y < 0 || y > m->rows){
 	  return -1;
      }
@@ -351,7 +351,7 @@ int64_t uncover_sector(Minefield_p m, int64_t x, int64_t y, int64_t (*retbuf)[3]
      if (!s) {
 	  return 0;
      }
-     
+
      sn = s->node;
      for (int i=0; i < s->size; i++){
 	  t = sn->tile;
@@ -367,10 +367,10 @@ int64_t uncover_sector(Minefield_p m, int64_t x, int64_t y, int64_t (*retbuf)[3]
      return c;
 }
 
-Tile * uncover_tile(Minefield * minefield, uint64_t x, uint64_t y) 
+Tile * uncover_tile(Minefield * minefield, uint64_t x, uint64_t y)
 {
      Tile * t = minefield->tiles[x][y];
-     
+
      if (t->ownerid == 0) {
 	  t->ownerid = 1;
      }
@@ -380,7 +380,7 @@ Tile * uncover_tile(Minefield * minefield, uint64_t x, uint64_t y)
      return t;
 }
 
-int64_t get_mine_buffer(Minefield_p m, int64_t ** mb) 
+int64_t get_mine_buffer(Minefield_p m, int64_t ** mb)
 {
      int k = 0;
      for (int i = 0; i < m->cols; i++) {
@@ -399,12 +399,12 @@ int64_t get_mine_buffer(Minefield_p m, int64_t ** mb)
 
 void srv_exit(void)
 {
-     system("rm tmp/mine_serv");
+     system("rm /tmp/mine_serv");
      exit(0);
 }
 
 /* DEBUG: tidy FIFO delete handler */
-void sig_handler(int signo) 
+void sig_handler(int signo)
 {
      if (signo == SIGINT){
 	  srv_exit();
@@ -413,7 +413,7 @@ void sig_handler(int signo)
 }
 
 
-     
+
 
 int main(void)
 {
@@ -426,18 +426,17 @@ int main(void)
      Minefield * minef;
      struct timespec ftime;
      char fifo[20], buf[25];
-     
+
      signal(SIGINT,sig_handler);
-     system("rm tmp/mine_serv");
-     
+
      /* setting fifo path */
-     sprintf(fifo, "tmp/mine_serv");
-    
+     sprintf(fifo, "/tmp/mine_serv");
+
      /* open connection */
      msgh = setup(fifo);
 
      /* wait for connections */
-     if (wait_msg(msgh, INIT_PLAYER, (void **) &pir, 10, 0, 10) < 0) {
+     if (wait_conn(msgh, 2, 0, 10) < 0) {
 	  printf("timeout.\n");
 	  srv_exit();
 	  return 0;
@@ -445,7 +444,7 @@ int main(void)
      printf("player initialization request \n");
      srv_exit();
      //minef = create_minefield(cols, rows, mines);
-     
+
      /* game loop */
      // while (player > 1)
      //    read();
@@ -453,7 +452,7 @@ int main(void)
      //    print_log();
      //    send();
 
-     
+
 
      /* fifo clean up */
      /* final */
@@ -461,5 +460,3 @@ int main(void)
      // free_minefield();
      // return;
 }
-
-     

@@ -40,14 +40,14 @@ void draw_minefield(WINDOW * win, int64_t ** buf, int64_t cols, int64_t rows, in
      return;
 }
 
-void draw_tile(WINDOW * win, int64_t y, int64_t x, int64_t nearby, int64_t cp1, int64_t cp2) 
+void draw_tile(WINDOW * win, int64_t y, int64_t x, int64_t nearby, int64_t cp1, int64_t cp2)
 {
      if (nearby == 10) {
 	  wattron(win,COLOR_PAIR(cp1));
 	  mvwaddch(win,y+1,x+1,'#');
 	  wattroff(win,COLOR_PAIR(cp1));
      }
-     
+
      if (nearby == 9) {
 	  wattron(win,COLOR_PAIR(cp2));
 	  mvwaddch(win,y+1,x+1,'*');
@@ -93,48 +93,54 @@ void update_mines(WINDOW * win, int64_t mines)
 }
 
 
-char fifo[30];
-
-/* DEBUG: tidy FIFO delete handler */
-void sig_handler(int signo)
-{
-     if (signo == SIGINT) {
-	  minefield_exit();
-     }
-     return;
-}
-
-void minefield_exit() {
+char fifo[30],fin[30], fout[30];
+void cli_exit() {
      char buf[50];
+     sprintf(buf, "rm %s", fin);
+     system(buf);
+     sprintf(buf, "rm %s", fout);
+     system(buf);
      sprintf(buf, "rm %s", fifo);
      system(buf);
      exit(0);
      return;
 }
 
-int main() 
+/* DEBUG: tidy FIFO delete handler */
+void sig_handler(int signo)
+{
+     if (signo == SIGINT) {
+	  cli_exit();
+     }
+     return;
+}
+
+
+
+int main()
 {
      MsgH_p msgh;
      int64_t connections[10], mid;
      char buf[50];
-     
      /* setting fifo path */
-     sprintf(fifo, "tmp/player/%d",getpid());
+     sprintf(fin, "/tmp/in%d", getpid());
+     sprintf(fout, "/tmp/out%d", getpid());
+     sprintf(fifo, "/tmp/%d", getpid());
      signal(SIGINT, sig_handler);
-     
+
      /* setup communications */
      msgh = setup(fifo);
      if (!msgh) {
 	  printf("no se pudo subscribir.\n");
-	  minefield_exit();
+	  cli_exit();
 	  return 0;
      }
      printf("suscrito.\n");
 
-     connections[0] = conn(msgh, "tmp/mine_serv", 10, 0, 5);
+     connections[0] = conn(msgh, "tmp/mine_serv", fin, fout, 10, 0, 5);
      if (connections[0] < 0) {
 	  printf("fallo la conexion\n");
-	  minefield_exit();
+	  cli_exit();
 	  return 0;
      }
      printf("se establecio conexion. \n");
@@ -156,16 +162,16 @@ int main()
      }
      */
      /* fifo clean up */
-     minefield_exit();
+     cli_exit();
      /*
      int64_t c, x, y, win_h, win_w, cols, rows, mines, mb_size_1 = 0, mb_size_2 = 0, count = 0, auxi = 0, auxj = 0, marks = 0;
      int64_t auxx, auxy, auxn, utiles = 0;
      int8_t win_flag = FALSE, loose_flag = FALSE;
-     
+
      int64_t ** mine_buffer_1 = NULL, ** mine_buffer_2 = NULL, (*mine_buffer_aux)[3] = NULL;
      WINDOW * win, * win2, *win3;
      Minefield_p minefield;
-     
+
      cols = 50;
      rows = 10;
      mines = 25;
@@ -176,21 +182,21 @@ int main()
      if (!mine_buffer_1 || !mine_buffer_2 || !mine_buffer_aux){
 	  return -1;
      }
-     
+
      do{
 	  mine_buffer_1[auxi] = malloc(sizeof(int64_t) * (rows-2));
 	  mine_buffer_2[auxi] = malloc(sizeof(int64_t) * (rows-2));
      } while (mine_buffer_1[auxi] && mine_buffer_2[auxi] && auxi++ < (cols-2));
-     
+
      for (int i = 0; i < (cols-2); i++) {
 	  for (int j = 0; j < (rows-2); j++) {
 	       mine_buffer_2[i][j] = -1;
 	  }
      }
-     
+
      minefield = create_minefield( cols - 2, rows - 2, mines);
      mb_size_1 = get_mine_buffer(minefield, mine_buffer_1);
-     
+
      initscr(); /* ncurses init */
      /****
      if (has_colors() == FALSE) {
@@ -205,20 +211,20 @@ int main()
      init_pair(2, COLOR_RED, COLOR_BLACK);
      init_pair(3, COLOR_BLACK, COLOR_WHITE);
      init_pair(4, COLOR_RED, COLOR_WHITE);
-     
-     
+
+
      x = y = 1;
      win_h = rows;
      win_w = cols;
      cbreak(); /* disable char buffering */
      /****
-     keypad(stdscr, TRUE); /* enable keypad, arrow keys 
+     keypad(stdscr, TRUE); /* enable keypad, arrow keys
      noecho(); /* disable echoing typed chars*/
      /****
      //curs_set(0); /* set cursor to invisible */
      /****
      refresh();
-     
+
      win = create_window(win_h, win_w, (LINES - win_h) / 2 - 5, (COLS - win_w) / 2);
      draw_minefield(win, mine_buffer_1, cols-2, rows-2, 1,2);
      wrefresh(win);
@@ -233,7 +239,7 @@ int main()
      update_marks(win3, marks);
      wmove(win2,1,1);
      wrefresh(win2);
-     
+
      //wattrset(win, COLOR_PAIR(2));
      while(!win_flag && !loose_flag && (c=toupper(getch())) != 'Q') {
 	  switch(c) {
@@ -241,7 +247,7 @@ int main()
 	       if (mine_buffer_2[x-1][y-1] == 10){
 		    break;
 	       }
-	       
+
 	       count = 0;
 	       count = uncover_sector(minefield, x-1, y-1, mine_buffer_aux);
 	       if (count > 0) {
@@ -257,7 +263,7 @@ int main()
 			 if (auxn == 9) {
 			      loose_flag = TRUE;
 			 }
-			 
+
 			 draw_tile(win2, auxy,auxx,auxn, 3,4);
 			 mine_buffer_2[auxx][auxy] = auxn;
 		    }
@@ -295,12 +301,12 @@ int main()
 	       wmove(win2,y,x);
 	       break;
 	  case KEY_RIGHT:
-	       /* move cursor right 
+	       /* move cursor right
 	       x = min(win_w - 2, x + 1);
 	       wmove(win2,y,x);
 	       break;
 	  case KEY_LEFT:
-	       /* move cursor left 
+	       /* move cursor left
 	       x = max(1, x - 1);
 	       wmove(win2,y,x);
 	       break;
@@ -316,7 +322,7 @@ int main()
 	       wattrset(win2, COLOR_PAIR(4));
 	       draw_minefield(win2,mine_buffer_2,cols-2, rows-2, 3, 4);
 	       wrefresh(win2);
-	       
+
 	       win3 = create_window(win_h * 2, win_w / 2, (LINES - win_h) / 2 - 5, (COLS - win_w) / 2 + win_w);
 	       update_mines(win3, mines);
 	       update_utiles(win3, utiles);
@@ -343,8 +349,7 @@ int main()
 	  wrefresh(win3);
 	  getch();
      }
-     
+
      endwin(); /* reset terminal */
      return 0;
 }
-

@@ -47,7 +47,7 @@ MsgH_p setup(char * fifo)
      return msgh;
 }
 
-int64_t conn(MsgH_p msgh, char * path, int64_t t_sec, int64_t t_nsec, int64_t tries)
+int64_t conn(MsgH_p msgh, char * srv_path, char * r_path, char * w_path, int64_t t_sec, int64_t t_nsec, int64_t tries)
 {
      Connection * c = NULL;
      Address * addr;
@@ -58,19 +58,19 @@ int64_t conn(MsgH_p msgh, char * path, int64_t t_sec, int64_t t_nsec, int64_t tr
      if (msgh->conn_size >= MAX_CONNS) {
 	  return -1;
      }
-     
+
      /* set up address */
-     addr = newAddress(path, 0);
+     addr = newAddress(srv_path, 0);
      /* set up tries time out */
      t.tv_sec = t_sec;
      t.tv_nsec = t_nsec;
 
      /* try out connecion */
-     c = connect(addr);
+     c = connect(addr, r_path, w_path);
      while(!c && tries-- > 0) {
 	  nanosleep(&t, NULL);
 	  printf("try %d...\n",tr++);
-	  c = connect(addr);
+	  c = connect(addr, r_path, w_path);
      }
      if (!c) {
 	  return -1;
@@ -81,11 +81,11 @@ int64_t conn(MsgH_p msgh, char * path, int64_t t_sec, int64_t t_nsec, int64_t tr
      return i;
 }
 
-int64_t send(MsgH_p msgh, int64_t connid, int64_t opcode, void * data_struct) 
+int64_t send(MsgH_p msgh, int64_t connid, int64_t opcode, void * data_struct)
 {
      int64_t size = 0;
      void * msg_data;
-     
+
      /* check opcode and connid */
      if (opcode < 0 || opcode >= OPCODE_SIZE || connid < 0 || connid >= msgh->conn_size) {
 	  return -1;
@@ -104,18 +104,19 @@ int64_t send(MsgH_p msgh, int64_t connid, int64_t opcode, void * data_struct)
 /*
 int64_t wait_ack(MsgH_p msgh, int64_t mid, int64_t timeout)
 {
-     
+
      return 0;
 }
 */
 
-int64_t check_msg(MsgH_p msgh, void ** data_struct)
+int64_t check_msg(MsgH_p msgh,int64_t cid ,void ** data_struct)
 {
-     Connection * c;
+    if(cid < 0 || cid >= msgh->conn_size)
+      return -1;
+     Connection * c = msgh->conns[cid];
      int64_t size, opcode;
      void * msg_data = NULL;
-     
-     msg_data = listen(&c, &size);
+     msg_data = readm(c, &size);
      if (!msg_data) {
 	  return -1;
      }
@@ -123,14 +124,31 @@ int64_t check_msg(MsgH_p msgh, void ** data_struct)
      return opcode = 0;
 }
 
-/*
-int64_t wait_conn(MsgH_p msgh, int64_t timeout) 
-{
-     return 0;
-}
-*/
 
-int64_t wait_msg(MsgH_p msgh, enum Opcode opcode, void ** data_struct, int64_t t_sec, int64_t t_nsec, int64_t tries)
+int64_t wait_conn(MsgH_p msgh, int64_t t_sec, int64_t t_nsec, int64_t tries)
+{
+  Connection * c = NULL;
+  int64_t i;
+  struct timespec t;
+  t.tv_sec = t_sec;
+  t.tv_nsec = t_nsec;
+
+  c = listen();
+  while (!c && tries-->0) {
+    printf("listening...\n");
+    nanosleep(&t, NULL);
+    c = listen();
+  }
+  if (!c) {
+    return -1;
+  }
+  i = msgh->conn_size++;
+  msgh->conns[i] = c;
+  return i;
+}
+
+
+int64_t wait_msg(MsgH_p msgh, int64_t cid, enum Opcode opcode, void ** data_struct, int64_t t_sec, int64_t t_nsec, int64_t tries)
 {
      int64_t auxop;
      void * aux_data;
@@ -138,12 +156,12 @@ int64_t wait_msg(MsgH_p msgh, enum Opcode opcode, void ** data_struct, int64_t t
 
      t.tv_sec = t_sec;
      t.tv_nsec = t_nsec;
-     
-     auxop = check_msg(msgh, &aux_data);
+
+     auxop = check_msg(msgh, cid, &aux_data);
      while (auxop != opcode && tries-->0) {
 	  nanosleep(&t, NULL);
 	  printf("waiting...\n");
-	  auxop = check_msg(msgh, &aux_data);
+	  auxop = check_msg(msgh, cid, &aux_data);
      }
      if (auxop != opcode) {
 	  return -1;

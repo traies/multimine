@@ -14,12 +14,12 @@ typedef struct connection Connection ;
 ** generated at the aforementioned address. Otherwise,
 ** the address will be "/tmp/pid" where pid=getpid().
 */
-Address * subscribe(const char * addr);
+Address * subscribe(char *addr);
 /*
 ** Connects the caller process to the given address.
 ** The callee must be subscribed to the channel.
 */
-Connection * connect(Address * addr);
+Connection * connect(Address * addr,char * read_addr,char * write_addr);
 
 /*
 ** Disconnects the caller process to the given address.
@@ -38,18 +38,14 @@ void disconnect(Connection * conn);
 ** when expecting a message and not expecting a connection,
 ** it means that a disconnection has occurred.
 */
-char * listen(Connection ** c,int * size);
+Connection * listen();
+
+char * readm(Connection * c, int * size);
 
 /*
 ** Writes size bytes of m to the given connection.
 */
 int writem(Connection * c, const char * m,int size);
-
-/*
-** Generates a blank connection. Use this in listen()
-** when a entrant connection is expected.
-*/
-Connection * emptyConnection();
 
 Address * newAddress(const char * f,int p);
 
