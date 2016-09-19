@@ -1,13 +1,21 @@
 #include <server.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <time.h>
 #include <queue.h>
+#include <comms.h>
+#include <unistd.h>
+#include <signal.h>
+#include <marsh.h>
 #define min(a,b)    ((a < b)? a:b)
 #define max(a,b)    ((a < b)? b:a)
 #define clamp(a, b, c) max(min(a,c),b)
 #define TRUE 1
 #define FALSE 0
+#define COLS 50
+#define ROWS 10
+#define MINES 100
 
 struct Sector;
 struct SectorNode;
@@ -388,3 +396,70 @@ int64_t get_mine_buffer(Minefield_p m, int64_t ** mb)
      }
      return k;
 }
+
+void srv_exit(void)
+{
+     system("rm tmp/mine_serv");
+     exit(0);
+}
+
+/* DEBUG: tidy FIFO delete handler */
+void sig_handler(int signo) 
+{
+     if (signo == SIGINT){
+	  srv_exit();
+     }
+     return;
+}
+
+
+     
+
+int main(void)
+{
+     MsgH_p msgh = NULL;
+     PlayerInit_r * pir = NULL;
+     Address * addr;
+     int64_t size;
+     Connection * conn = NULL;
+     int64_t rows = ROWS, cols = COLS, mines = MINES;
+     Minefield * minef;
+     struct timespec ftime;
+     char fifo[20], buf[25];
+     
+     signal(SIGINT,sig_handler);
+     system("rm tmp/mine_serv");
+     
+     /* setting fifo path */
+     sprintf(fifo, "tmp/mine_serv");
+    
+     /* open connection */
+     msgh = setup(fifo);
+
+     /* wait for connections */
+     if (wait_msg(msgh, INIT_PLAYER, (void **) &pir, 10, 0, 10) < 0) {
+	  printf("timeout.\n");
+	  srv_exit();
+	  return 0;
+     }
+     printf("player initialization request \n");
+     srv_exit();
+     //minef = create_minefield(cols, rows, mines);
+     
+     /* game loop */
+     // while (player > 1)
+     //    read();
+     //    update();
+     //    print_log();
+     //    send();
+
+     
+
+     /* fifo clean up */
+     /* final */
+     // close_connections();
+     // free_minefield();
+     // return;
+}
+
+     

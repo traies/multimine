@@ -3,11 +3,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <string.h>
 #include <ctype.h>
 #include <time.h>
 #include <queue.h>
-#include <server.h>
+#include <signal.h>
+#include <marsh.h>
+#include <comms.h>
+#include <unistd.h>
 
 #define min(a,b)    ((a < b)? a:b)
 #define max(a,b)    ((a < b)? b:a)
@@ -90,9 +92,72 @@ void update_mines(WINDOW * win, int64_t mines)
      wrefresh(win);
 }
 
+
+char fifo[30];
+
+/* DEBUG: tidy FIFO delete handler */
+void sig_handler(int signo)
+{
+     if (signo == SIGINT) {
+	  minefield_exit();
+     }
+     return;
+}
+
+void minefield_exit() {
+     char buf[50];
+     sprintf(buf, "rm %s", fifo);
+     system(buf);
+     exit(0);
+     return;
+}
+
 int main() 
 {
+     MsgH_p msgh;
+     int64_t connections[10], mid;
+     char buf[50];
      
+     /* setting fifo path */
+     sprintf(fifo, "tmp/player/%d",getpid());
+     signal(SIGINT, sig_handler);
+     
+     /* setup communications */
+     msgh = setup(fifo);
+     if (!msgh) {
+	  printf("no se pudo subscribir.\n");
+	  minefield_exit();
+	  return 0;
+     }
+     printf("suscrito.\n");
+
+     connections[0] = conn(msgh, "tmp/mine_serv", 10, 0, 5);
+     if (connections[0] < 0) {
+	  printf("fallo la conexion\n");
+	  minefield_exit();
+	  return 0;
+     }
+     printf("se establecio conexion. \n");
+     getchar();
+
+     /* request player signup */
+     /*
+     mid = send(PLAYER_SIGNUP);
+     if (!wait_ack(mid, 2)){
+	  printf("PLAYER SIGNUP FAILED");
+     }
+
+     msg = wait_msg(INIT_GAME, timeout);
+     if (msg != NULL) {
+	  GameInfo g = (GameInfo) msg;
+	  rows = g->rows;
+	  cols = g->cols;
+	  mines = g->mines;
+     }
+     */
+     /* fifo clean up */
+     minefield_exit();
+     /*
      int64_t c, x, y, win_h, win_w, cols, rows, mines, mb_size_1 = 0, mb_size_2 = 0, count = 0, auxi = 0, auxj = 0, marks = 0;
      int64_t auxx, auxy, auxn, utiles = 0;
      int8_t win_flag = FALSE, loose_flag = FALSE;
@@ -127,12 +192,14 @@ int main()
      mb_size_1 = get_mine_buffer(minefield, mine_buffer_1);
      
      initscr(); /* ncurses init */
+     /****
      if (has_colors() == FALSE) {
 	  endwin();
 	  printf("no color");
 	  return 0;
      }
      /* color initialization */
+     /*****
      start_color();
      init_pair(1, COLOR_WHITE, COLOR_BLACK);
      init_pair(2, COLOR_RED, COLOR_BLACK);
@@ -144,9 +211,12 @@ int main()
      win_h = rows;
      win_w = cols;
      cbreak(); /* disable char buffering */
-     keypad(stdscr, TRUE); /* enable keypad, arrow keys */
+     /****
+     keypad(stdscr, TRUE); /* enable keypad, arrow keys 
      noecho(); /* disable echoing typed chars*/
+     /****
      //curs_set(0); /* set cursor to invisible */
+     /****
      refresh();
      
      win = create_window(win_h, win_w, (LINES - win_h) / 2 - 5, (COLS - win_w) / 2);
@@ -220,17 +290,17 @@ int main()
 	       wmove(win2,y,x);
 	       break;
 	  case KEY_DOWN:
-	       /* move cursor down */
+	       /* move cursor down *
 	       y = min(win_h - 2, y + 1);
 	       wmove(win2,y,x);
 	       break;
 	  case KEY_RIGHT:
-	       /* move cursor right */
+	       /* move cursor right 
 	       x = min(win_w - 2, x + 1);
 	       wmove(win2,y,x);
 	       break;
 	  case KEY_LEFT:
-	       /* move cursor left */
+	       /* move cursor left 
 	       x = max(1, x - 1);
 	       wmove(win2,y,x);
 	       break;
