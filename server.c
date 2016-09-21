@@ -367,10 +367,13 @@ int64_t uncover_sector(Minefield_p m, int64_t x, int64_t y, int64_t (*retbuf)[3]
      return c;
 }
 
-Tile * uncover_tile(Minefield * minefield, uint64_t x, uint64_t y)
+Tile * uncover_tile(Minefield * m, uint64_t x, uint64_t y)
 {
-     Tile * t = minefield->tiles[x][y];
-
+     Tile * t;
+     if (m==NULL || x < 0 || y < 0 || x >= m->cols || y >= m->rows) {
+	  return NULL;
+     }
+     t = m->tiles[x][y];
      if (t->ownerid == 0) {
 	  t->ownerid = 1;
      }
@@ -412,16 +415,13 @@ void sig_handler(int signo)
      return;
 }
 
-
-
-
 int main(void)
 {
-     MsgH_p msgh = NULL;
+     Listener_p lp = NULL;
      PlayerInit_r * pir = NULL;
-     Address * addr;
+     Address srv_addr;
      int64_t size;
-     Connection * conn = NULL;
+     Connection * c = NULL;
      int64_t rows = ROWS, cols = COLS, mines = MINES;
      Minefield * minef;
      struct timespec ftime;
@@ -431,13 +431,16 @@ int main(void)
 
      /* setting fifo path */
      sprintf(fifo, "/tmp/mine_serv");
-
+     srv_addr.fifo = fifo;
+     
      /* open connection */
-     msgh = setup(fifo);
+     lp = mm_listen(&srv_addr);
 
      /* wait for connections */
-     if (wait_conn(msgh, 2, 0, 10) < 0) {
-	  printf("timeout.\n");
+     if ( (c = mm_accept(lp)) != 0) {
+	  /* established conection on c, needs to fork() */
+	  printf("conexion establecida\n");
+	  getchar();
 	  srv_exit();
 	  return 0;
      }

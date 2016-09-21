@@ -1,7 +1,7 @@
 CC=gcc
 LIBS=-lncurses
 
-COMMON_SRC= queue.c comms.c marsh.c
+COMMON_SRC= queue.c comms.c
 COMMON_OBJ= $(COMMON_SRC:.c=.o) 
 CLIENT_SRC= client.c
 CLIENT_OBJ= $(CLIENT_SRC:.c=.o)

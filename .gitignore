@@ -4,6 +4,11 @@
 *.obj
 *.elf
 
+# Emacs files
+*~
+\#*\#
+*.save
+
 # Precompiled Headers
 *.gch
 *.pch

@@ -93,14 +93,13 @@ void update_mines(WINDOW * win, int64_t mines)
 }
 
 
-char fifo[30],fin[30], fout[30];
+char fin[30], fout[30];
 void cli_exit() {
      char buf[50];
+     printf("algo.\n");
      sprintf(buf, "rm %s", fin);
      system(buf);
      sprintf(buf, "rm %s", fout);
-     system(buf);
-     sprintf(buf, "rm %s", fifo);
      system(buf);
      exit(0);
      return;
@@ -119,24 +118,32 @@ void sig_handler(int signo)
 
 int main()
 {
+     /*
      MsgH_p msgh;
      int64_t connections[10], mid;
      char buf[50];
+     */
+     Address srv_addr;
+     
      /* setting fifo path */
-     sprintf(fin, "/tmp/in%d", getpid());
-     sprintf(fout, "/tmp/out%d", getpid());
-     sprintf(fifo, "/tmp/%d", getpid());
+     
+     sprintf(fin, "/tmp/r%d", getpid());
+     sprintf(fout, "/tmp/w%d", getpid());
+     
      signal(SIGINT, sig_handler);
-
+     
      /* setup communications */
-     msgh = setup(fifo);
-     if (!msgh) {
+     srv_addr.fifo = "/tmp/mine_serv";
+     Connection * c = mm_connect(&srv_addr);
+     sleep(1);
+     if (!c) {
 	  printf("no se pudo subscribir.\n");
 	  cli_exit();
 	  return 0;
      }
      printf("suscrito.\n");
 
+/*
      connections[0] = conn(msgh, "tmp/mine_serv", fin, fout, 10, 0, 5);
      if (connections[0] < 0) {
 	  printf("fallo la conexion\n");
@@ -145,7 +152,7 @@ int main()
      }
      printf("se establecio conexion. \n");
      getchar();
-
+     */
      /* request player signup */
      /*
      mid = send(PLAYER_SIGNUP);

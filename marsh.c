@@ -13,6 +13,11 @@ typedef struct MsgHandle
      Connection * conns[MAX_CONNS];
 } MsgHandle;
 
+typedef struct SrvHandle
+{
+     Listener * listener;
+} SrvHandle;
+
 void * init_player_marsh(void * data_struct, int64_t * size)
 {
      return NULL;
@@ -32,14 +37,14 @@ void * ( *opmarsher [OPCODE_SIZE])(void *, int64_t *) = {
 void * unmarsh(void * data_msg, int64_t size);
 
 
-MsgH_p setup(char * fifo)
+SrvHandle_p setup_srv(char * fifo)
 {
-     MsgH_p msgh;
-     msgh = calloc(1,sizeof(MsgHandle));
-     if (!msgh){
+     SrvHandle_p srvh;
+     srvh = calloc(1,sizeof(SrvHandle));
+     if (!srvh){
 	  return NULL;
      }
-     msgh->addr = subscribe(fifo);
+     srvh->listener = mm_listen(fifo);
      if (!msgh->addr) {
 	  free(msgh);
 	  return NULL;
