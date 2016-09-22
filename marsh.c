@@ -40,6 +40,8 @@ void * unmarsh(void * data_msg, int64_t size);
 SrvHandle_p setup_srv(char * fifo)
 {
      SrvHandle_p srvh;
+     Address addr;
+     addr->
      srvh = calloc(1,sizeof(SrvHandle));
      if (!srvh){
 	  return NULL;
@@ -52,7 +54,7 @@ SrvHandle_p setup_srv(char * fifo)
      return msgh;
 }
 
-int64_t conn(MsgH_p msgh, char * srv_path, char * r_path, char * w_path, int64_t t_sec, int64_t t_nsec, int64_t tries)
+int64_t conn(MsgH_p msgh, char * srv_path, int64_t t_sec, int64_t t_nsec, int64_t tries)
 {
      Connection * c = NULL;
      Address * addr;

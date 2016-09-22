@@ -1,5 +1,5 @@
 CC=gcc
-LIBS=-lncurses
+LIBS=-lncurses -pthread
 
 COMMON_SRC= queue.c comms.c
 COMMON_OBJ= $(COMMON_SRC:.c=.o) 

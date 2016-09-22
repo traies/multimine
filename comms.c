@@ -118,14 +118,13 @@ Connection * mm_connect(Address * addr){
     return NULL;
   }
   
-  int r=open(r_addr,O_RDWR);
+  int r=open(r_addr,O_RDONLY | O_NONBLOCK);
   int size = strlen(r_addr)+strlen(w_addr)+2;
 
   char * msg = malloc(size);
   memcpy(msg,r_addr,strlen(r_addr)+1);
   memcpy(msg+strlen(r_addr)+1,w_addr,strlen(w_addr)+1);
   write_msg(w_fd,msg,ADD_CONN_PCK,size,0);
-  printf("%s\n", r_addr);
   int to=TIMEOUT;
   void * buf = malloc(sizeof(Message));
   while(to>0){
@@ -204,14 +203,7 @@ Connection * mm_accept(Listener_p l){
   memcpy(buf,m->data,m->size);
   int w_fd,i,r_fd;
   if(m->type == ADD_CONN_PCK){
-      /*
-      ** This means the connection established is new,
-      ** therefore the content of the buff is the address
-      ** of the source process.
-      */
-       printf("%s\n", buf);
        w_fd= open(buf,O_WRONLY);
-       printf("%s\n", buf+strlen(buf)+1);
       r_fd= open(buf+strlen(buf)+1,O_RDONLY|O_NONBLOCK);
       if (w_fd < 0 || r_fd < 0) {
 	   return NULL;

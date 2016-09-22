@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <marsh.h>
+#include <pthread.h>
 #define min(a,b)    ((a < b)? a:b)
 #define max(a,b)    ((a < b)? b:a)
 #define clamp(a, b, c) max(min(a,c),b)
@@ -19,6 +20,13 @@
 
 struct Sector;
 struct SectorNode;
+
+typedef struct attender
+{
+     Connection * con;
+     int pipe_fd;
+} Attender;
+
 
 typedef struct
 {
@@ -415,10 +423,53 @@ void sig_handler(int signo)
      return;
 }
 
+/* attendants threads run here */
+void * attend(void * a)
+{
+     Connection * con;
+     Attender * attr = (Attender *) a ;
+     int8_t * buf;
+     int len, w_fd;
+     if (a == NULL) {
+	  pthread_exit(NULL);
+     }
+     con =  attr->con;
+     w_fd = attr->pipe_fd;
+     
+     printf("insert.\n");
+     getchar();
+     write(w_fd, "algo", 5);
+     
+     /* expects non-blocking read */
+     /*
+     while ((buf = mm_read(con, &len)) > 0) {
+	  write(w_fd, buf, len);
+     }
+     */
+     //exit(0);
+     pthread_exit(0);
+}
+
+/* informer threads run here */
+void inform(int r_fd, Connection * con)
+{
+     int8_t buf[200];
+     int64_t len, max_size = 200;
+
+     printf("thread inform.\n");
+     
+     /* expects non-blocking read */
+     while((len = read(r_fd, buf, max_size)) > 0) {
+	  mm_write(con, buf, len);
+     }
+     pthread_exit(0);
+}
+
+
 int main(void)
 {
      Listener_p lp = NULL;
-     PlayerInit_r * pir = NULL;
+     pthread_t p;
      Address srv_addr;
      int64_t size;
      Connection * c = NULL;
@@ -426,24 +477,31 @@ int main(void)
      Minefield * minef;
      struct timespec ftime;
      char fifo[20], buf[25];
-
+     int fd[2];
+     Attender * attender = malloc(sizeof(Attender));
+     
      signal(SIGINT,sig_handler);
-
+     
      /* setting fifo path */
      sprintf(fifo, "/tmp/mine_serv");
      srv_addr.fifo = fifo;
      
      /* open connection */
      lp = mm_listen(&srv_addr);
-
+     
      /* wait for connections */
      if ( (c = mm_accept(lp)) != 0) {
-	  /* established conection on c, needs to fork() */
-	  printf("conexion establecida\n");
-	  getchar();
+	  /* established conection on c, needs to create thread */
+	  printf("conexion establecida. Creando thread.\n");
+	  pipe(fd);
+	  attender->con = c;
+	  /* attender recieves read end */
+	  attender->pipe_fd = fd[1];
+	  pthread_create(&p, NULL, attend, attender);
+	  read(fd[0], buf, 10);
 	  srv_exit();
-	  return 0;
      }
+     
      printf("player initialization request \n");
      srv_exit();
      //minef = create_minefield(cols, rows, mines);
