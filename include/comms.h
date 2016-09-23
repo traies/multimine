@@ -39,7 +39,7 @@ Connection * mm_accept(Listener_p l);
 ** Reads bytes from a connection. An int, where the
 ** amount of bites read will be completed, must be passed.
 */
-char * mm_read(Connection * c, int * size);
+int mm_read(Connection * c, char buf[], int size);
 
 /*
 ** Writes size bytes of m to the given connection.

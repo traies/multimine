@@ -433,66 +433,79 @@ void * attend(void * a)
      int len;
      
      /* expects blocking read */
-     while ( ( buf = mm_read(con, &len)) > 0) {
-       write(w_fd, buf, len);
+     while ((len = mm_read(con, buf, buf_size)) > 0) {
+	  write(w_fd, buf, len);
      }
-     
      pthread_exit(0);
 }
 
-/* informer threads run here */
-void inform(int r_fd, Connection * con)
+typedef struct Informer 
 {
-     int8_t buf[200];
-     int64_t len, max_size = 200;
+     Connection * con;
+     int r_fd;
+} Informer;
 
-     printf("thread inform.\n");
+/* informer threads run here */
+void * inform(void * a)
+{
+     Informer * info = (Informer *) a;
+     Connection * con = info->con;
+     int r_fd = info->r_fd;
+     int8_t buf[200];
+     int64_t len, buf_size = 200;
      
      /* expects blocking read */
-     while((len = read(r_fd, buf, max_size)) > 0) {
+     while((len = read(r_fd, buf, buf_size)) > 0) {
 	  mm_write(con, buf, len);
      }
      pthread_exit(0);
 }
 
-typedef struct AttrPthread
+typedef struct ClientPthreads
 {
-  pthread_t p;
-  int r_fd;
-} AttrPthread;
+     pthread_t p_attr;
+     pthread_t p_info;
+     int r_fd;
+     int w_fd;
+} ClientPthreads;
 
-typedef struct InfoPthread
+int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set, int64_t * cli_i, int * attr_nfds, int * info_nfds, Connection * con)
 {
-  pthread_t p;
-  int w_fd;
-} InfoPthread;
-
-
-int64_t add_attender(AttrPthread * attr_arr [], fd_set * r_set, int64_t * attr_i, int * nfds, Connection * con)
-{
-     AttrPthread * attr_p;
+     ClientPthreads * cli_p;
      Attender * attender;
-     int fd[2];
-     pthread_t pt;
+     Informer * informer;
+     int attr_fd[2], info_fd[2];
+     pthread_t pt_attr, pt_info;
      
+     cli_p = malloc(sizeof(ClientPthreads));
      attender = malloc(sizeof(Attender));
-     attr_p = malloc(sizeof(AttrPthread));
-     if (!attender||!attr_p) {
+     informer = malloc(sizeof(Informer));
+     if (!informer || !attender || !cli_p) {
 	  free(attender);
-	  free(attr_p);
+	  free(cli_p);
 	  return -1;
      }
      attender->con = con;
-     pipe(fd);
-     attender->w_fd = fd[1];
-     pthread_create(&pt, NULL, attend, attender);
-     attr_p->p = pt;
-     attr_p->r_fd = fd[0];
-     FD_SET(fd[0], r_set);
-     attr_arr[*attr_i] = attr_p;
-     *attr_i = *attr_i + 1;
-     if (*nfds < fd[0] + 1) {
-	  *nfds = fd[0] + 1;
+     informer->con = con;
+     pipe(attr_fd);
+     pipe(info_fd);
+     attender->w_fd = attr_fd[1];
+     informer->r_fd = info_fd[0];
+     pthread_create(&pt_attr, NULL, attend, attender);
+     pthread_create(&pt_info, NULL, inform, informer);
+     cli_p->p_attr = pt_attr;
+     cli_p->p_info = pt_info;
+     cli_p->r_fd = attr_fd[0];
+     cli_p->w_fd = info_fd[1];
+     FD_SET(attr_fd[0], r_set);
+     FD_SET(info_fd[1], w_set);
+     cli_arr[*cli_i] = cli_p;
+     *cli_i = *cli_i + 1;
+     if (*attr_nfds < attr_fd[0] + 1) {
+	  *attr_nfds = attr_fd[0] + 1;
+     }
+     if (*info_nfds < info_fd[1] + 1) {
+	  *info_nfds = info_fd[1] + 1;
      }
      return 0;
 }
@@ -501,23 +514,18 @@ int64_t add_attender(AttrPthread * attr_arr [], fd_set * r_set, int64_t * attr_i
 int main(void)
 {
      Listener_p lp;
-     pthread_t p;
      Address srv_addr;
-     int64_t size;
      Connection * c = NULL;
      int64_t rows = ROWS, cols = COLS, mines = MINES;
      Minefield * minef;
      char fifo[20], buf[25];
-     int fd[2];
-     Attender * attender = malloc(sizeof(Attender));
-     AttrPthread attr_pthread;
-     InfoPthread info_pthread;
-     int sflag, q = 0, nfds = 0, max_size = 1000;
-     int64_t attr_i = 0;
-     fd_set r_set;
+     int sflag, q = 0, attr_nfds = 0, info_nfds = 0, max_size = 1000;
+     int64_t cli_i = 0;
+     fd_set r_set, w_set;
      struct timeval timeout;
-     AttrPthread * pths[10];
+     ClientPthreads * pths[10];
      int count = 0;
+     
      timeout.tv_sec = 10;
      timeout.tv_usec = 0;
      
@@ -531,14 +539,14 @@ int main(void)
      lp = mm_listen(&srv_addr);
      
      /* wait for connections */
-     while ( count < 2 && (c = mm_accept(lp)) != 0) {
+     while ( count < 1 && (c = mm_accept(lp)) != NULL) {
 	  /* established conection on c, needs to create thread */
 	  printf("conexion establecida. Creando thread.\n");
-	  add_attender(pths, &r_set, &attr_i, &nfds, c);
+	  add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c);
 	  printf("thread creado..\n");
 	  count++;
 	  
-//pipe(fd);
+	  /*pipe(fd);
 	  /*
 	  attender->con = c;
 	  /* attender recieves write end */
@@ -548,27 +556,39 @@ int main(void)
 	  //attr_pthread.r_fd = fd[0];
 	  //attr_pthread.p = p;
      }
-     if (count < 2) {
+     if (count < 1) {
 	  srv_exit();
      }
 
      while (!q) {
-	  sflag = select(nfds, &r_set, NULL, NULL, &timeout);
+	  /* read() */
+	  sflag = select(attr_nfds, &r_set, NULL, NULL, &timeout);
 	  timeout.tv_sec = 10;
+	  
 	  if (sflag < 0) {
-	       /* timeout expired */
+	       /* timeout expired*/
 	       srv_exit();
 	  }
-	  else {
-	       for(int i = 0; i < attr_i; i++) {
+	  else if (sflag > 0){
+	       for(int i = 0; i < cli_i; i++) {
 		    if (FD_ISSET(pths[i]->r_fd, &r_set)) {
-			 /* read fd */
+			 /* read fd */ 
 			 read(pths[i]->r_fd,buf,max_size);
-			 printf(buf);
+			 /* update(Minefield * m, QueryStruct * qs, Queue * q) */
+			 printf("%s\n", buf);
 		    }
 		    else {
 			 FD_SET(pths[i]->r_fd, &r_set);
 		    }
+	       }
+	       /* send to all 
+	       
+		  while(!FD_EMPTY(&w_set)) { 
+	             select(info_nfds, NULL, &w_set, NULL, &timeout) 
+	       */
+	       
+	       for (int i = 0; i < cli_i; i++) {
+		    write(pths[i]->w_fd, "hello\n", 7);
 	       }
 	  }
      }			      

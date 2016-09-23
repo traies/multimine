@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#define min(a,b)  ((a) < (b))?(a):(b) 
 #define TIMEOUT 5
 #define NORMAL_PCK 8
 #define DELETE_CONN_PCK 9
@@ -76,20 +77,23 @@ Connection * mm_connect(Address * addr){
     return NULL;
   }
 
-  int r=open(r_addr,O_RDONLY | O_NONBLOCK);
+  
+  
   int size = strlen(r_addr)+strlen(w_addr)+2;
 
   char * msg = malloc(size);
   memcpy(msg,r_addr,strlen(r_addr)+1);
   memcpy(msg+strlen(r_addr)+1,w_addr,strlen(w_addr)+1);
   write_msg(w_fd,msg,ADD_CONN_PCK,size);
+  int r=open(r_addr,O_RDONLY);
   int to=TIMEOUT;
   void * buf = malloc(sizeof(Message));
   while(to>0){
+       int w=open(w_addr,O_WRONLY);
     if(read(r,(char *)buf,sizeof(Message))>0){
       Message * msg = (Message *) buf;
       if(msg->type==ACK_CONN_PCK){
-	   int w=open(w_addr,O_WRONLY);
+	   
         c = newConnection(w,r);
         free(buf);
         return c;
@@ -138,7 +142,6 @@ Connection * mm_accept(Listener_p l){
   void * msg = malloc(sizeof(Message));
   
   if ((len = read(l->l_fd,msg,sizeof(Message))) < 0) {
-    printf("hhh.\n");
     return NULL;
   }
   
@@ -149,7 +152,7 @@ Connection * mm_accept(Listener_p l){
   
   if(m->type == ADD_CONN_PCK){
        w_fd= open(buf,O_WRONLY);
-      r_fd= open(buf+strlen(buf)+1,O_RDONLY|O_NONBLOCK);
+      r_fd= open(buf+strlen(buf)+1,O_RDONLY);
       if (w_fd < 0 || r_fd < 0) {
 	
 	   return NULL;
@@ -166,31 +169,30 @@ Connection * mm_accept(Listener_p l){
   return NULL;
 }
 
-char * mm_read(Connection * c, int * size){
-  void * msg = malloc(sizeof(Message));
-  while(read(c->r_fd,msg,sizeof(Message))!=sizeof(Message));
-  Message * m = (Message *)msg;
-  char * buf = malloc(m->size);
-  memcpy(buf,m->data,m->size);
-  int i;
-  if(m->type == DELETE_CONN_PCK){
-      int o_pid=atoi(buf);
-      int pid = getpid();
-      char r_addr[20], w_addr[20];
-      sprintf(r_addr,"/tmp/r%d",o_pid);
-      sprintf(w_addr,"/tmp/w%d",o_pid);
-      remove(r_addr);
-      remove(w_addr);
-      free(msg);
-      free(buf);
-      return  NULL;
-  }
-  else if ( m->type != NORMAL_PCK){
-    return NULL;
-  }
-  *size=m->size;
-  return buf;
-
+int  mm_read(Connection * c, char buf[], int size)
+{
+     int len;
+     Message m;
+     
+     if ((len = read(c->r_fd,(char *) &m,sizeof(Message))) < 0) {
+	  return -1;
+     }
+     len = min(size, m.size);
+     memcpy(buf,m.data,len);
+     if(m.type == DELETE_CONN_PCK){
+	  int o_pid=atoi(buf);
+	  int pid = getpid();
+	  char r_addr[20], w_addr[20];
+	  sprintf(r_addr,"/tmp/r%d",o_pid);
+	  sprintf(w_addr,"/tmp/w%d",o_pid);
+	  remove(r_addr);
+	  remove(w_addr);
+	  return  -1;
+     }
+     else if ( m.type != NORMAL_PCK){
+	  return -1;
+     }
+     return len;
 }
 
 static Connection * newConnection(int w,int r){

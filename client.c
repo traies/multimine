@@ -125,6 +125,7 @@ int main()
      */
      Address srv_addr;
      char buf[200], buf2[200];
+     char srv_info[200];
      /* setting fifo path */
      
      sprintf(fin, "/tmp/r%d", getpid());
@@ -141,11 +142,14 @@ int main()
 	  return 0;
      }
      printf("suscrito.\n");
+     int len, max_size = 100;
      while(1){
 	  scanf("%s", buf);
-	  sprintf(buf2, "%s\n", buf);
-	  mm_write(c, buf2, strlen(buf2)+1);
-	  getchar();
+	  mm_write(c, buf, strlen(buf)+1);
+	  
+	  if ((len = mm_read(c, srv_info, max_size)) > 0) {
+	       printf("%s\n",srv_info);
+	  }
      }
      
      
