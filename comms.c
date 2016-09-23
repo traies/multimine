@@ -8,9 +8,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <sys/types.h>
-
 #define TIMEOUT 5
-#define INCREMENT 10
 #define NORMAL_PCK 8
 #define DELETE_CONN_PCK 9
 #define ADD_CONN_PCK 10
@@ -31,9 +29,19 @@ struct message{
 
 typedef struct message Message;
 
-typedef struct Listener {
-     int64_t l_fd;
-} Listener;
+/*
+** This struct contains the address of the
+** fifo where the process should be contacted
+** in order to establish a connection.
+*/
+struct address {
+  const char * fifo;
+} ;
+
+
+struct listener {
+     int l_fd;
+};
 
 struct connection {
   int w_fd;
@@ -61,7 +69,7 @@ Listener_p mm_listen(Address * addr){
 }
 
 /* */
-Connection * mm_connect(Address * addr){
+Connection * mm_connect(Listener_p l,Address * addr){
   if(addr == NULL){
     return NULL;
   }
