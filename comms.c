@@ -92,7 +92,7 @@ Connection * mm_connect(Listener_p l,Address * addr){
   char * msg = malloc(size);
   memcpy(msg,r_addr,strlen(r_addr)+1);
   memcpy(msg+strlen(r_addr)+1,w_addr,strlen(w_addr)+1);
-  write_msg(w_fd,msg,ADD_CONN_PCK,size,0);
+  write_msg(w_fd,msg,ADD_CONN_PCK,size);
   int to=TIMEOUT;
   void * buf = malloc(sizeof(Message));
   while(to>0){
@@ -116,12 +116,11 @@ Connection * mm_connect(Listener_p l,Address * addr){
 
 void mm_disconnect(Connection * c){
   int pid = getpid();
-  char * buf = calloc(20,1);
-  itoa(pid,buf,10);
+  char buf[20];
+  snprintf(buf, 20, "%d", pid);
   write_msg(c->w_fd,buf,DELETE_CONN_PCK,strlen(buf)+1);
   close(c->w_fd);
   close(c->r_fd);
-  free(buf);
   free(c);
 }
 
