@@ -16,10 +16,12 @@
 #define ADD_CONN_PCK 10
 #define ACK_CONN_PCK 11
 #define DATASIZE 1024
+
 /*
 ** All the information required to
 ** process an incoming message is contained
-** in this struct.
+** in this struct. The messages transmitted are
+** of fixed size.
 */
 struct message{
   int size;
@@ -38,64 +40,22 @@ struct connection {
   int r_fd;
 };
 
-static int write_msg(int w_fd,const char * m,int type,int size,int check);
-static int findConn(int pid);
-static void increaseConns();
-static void deleteConn(int conn_num);
+static int write_msg(int w_fd,const char * m,int type,int size);
 static Connection * newConnection(int w,int r);
 
-/*
-** Generates a blank connection. Use this in listen()
-** when a entrant connection is expected.
-*/
-static Connection * emptyConnection();
 
-/*
-** Static variables
-*/
-//static Address * m_addr=NULL;
-//static Connection ** conns;
-//static int listen_fd = 0;
-//static int n_conns=0;
-//static int s_conns=0;
-
-/* binds file system path/socket and address*/
-/*
-Address * mm_new_addr(char * path)
-{
-     Address * addr = NULL;
-     char * fifo = NULL;
-     
-     addr = malloc(sizeof(Address));
-     if (addr == NULL || mkfifo(path, S_IWUSR | IRUSR)) {
-	  free(addr);
-	  return NULL;
-     }
-     mkfifo(
-     if (addr
-     
-     addr->fifo = fifo;
-     strcpy(addr->fifo, path);
-     return addr;
-}
-*/
-
-/* old subscribe(char *)  method */
 Listener_p mm_listen(Address * addr){
      Listener * l = NULL;
-     
      l = malloc(sizeof(Listener));
      if (addr == NULL || l == NULL || mkfifo(addr->fifo, S_IWUSR | S_IRUSR)) {
-	  free(l);
-	  return NULL;
+  	  free(l);
+  	  return NULL;
      }
-     
      l->l_fd=open(addr->fifo,O_RDWR);
-     
      if (l->l_fd < 0) {
-	  free(l);
-	  /*rm ${addr->path} */
-	  l = NULL;
+  	  free(l);
+  	  /*rm ${addr->path} */
+  	  l = NULL;
      }
      return l;
 }
@@ -105,19 +65,19 @@ Connection * mm_connect(Address * addr){
   if(addr == NULL){
     return NULL;
   }
-  
+
   int w_fd=open(addr->fifo,O_WRONLY);
   Connection * c;
   int pid = getpid();
   char r_addr[20], w_addr[20];
-  
+
   sprintf(r_addr,"/tmp/r%d",pid);
   sprintf(w_addr,"/tmp/w%d",pid);
-  
+
   if(mkfifo(r_addr,S_IWUSR | S_IRUSR) || mkfifo(w_addr,S_IWUSR | S_IRUSR)){
     return NULL;
   }
-  
+
   int r=open(r_addr,O_RDONLY | O_NONBLOCK);
   int size = strlen(r_addr)+strlen(w_addr)+2;
 
@@ -146,42 +106,28 @@ Connection * mm_connect(Address * addr){
 
 }
 
-void mm_disconnect(Connection * con){
-  int i;
-  /*
-  if((i=findConn(con->o_pid))==-1){
-    return ;
-  }
-  */
-
-  //write_msg(con,NULL,DELETE_CONN_PCK,0,1);
-  //deleteConn(i);
+void mm_disconnect(Connection * c){
+  int pid = getpid();
+  char * buf = calloc(20,1);
+  itoa(pid,buf,10);
+  write_msg(c->w_fd,buf,DELETE_CONN_PCK,strlen(buf)+1);
+  close(c->w_fd);
+  close(c->r_fd);
+  free(buf);
+  free(c);
 }
-
-/*
-static int findConn(int pid){
-  char found=0;
-  int i=0;
-  for(i=0;!found && i<n_conns;i++){
-    if(conns[i]->o_pid == pid){
-	return i;
-    }
-  }
-	return -1;
-}
-*/
 
 int mm_write(Connection * c,const char * m,int size){
-  return write_msg(c->w_fd,m,NORMAL_PCK,size,1);
+  return write_msg(c->w_fd,m,NORMAL_PCK,size);
 }
 
 
-static int write_msg(int w_fd,const char * m,int type,int size,int check){
-     
+static int write_msg(int w_fd,const char * m,int type,int size){
+
   Message * msg = calloc(sizeof(Message),1);
   msg->size=size;
   msg->type=type;
-  
+
   if(size>0){
     memcpy(msg->data,m,size);
   }
@@ -190,11 +136,10 @@ static int write_msg(int w_fd,const char * m,int type,int size,int check){
   return size;
 }
 
-/* old listen() method */
 Connection * mm_accept(Listener_p l){
      int64_t len;
   void * msg = malloc(sizeof(Message));
-  
+
   if ((len = read(l->l_fd,msg,sizeof(Message))) < 0) {
     return NULL;
   }
@@ -209,8 +154,8 @@ Connection * mm_accept(Listener_p l){
 	   return NULL;
       }
       Connection * c = newConnection(w_fd, r_fd);
-      
-      write_msg(c->w_fd,NULL,ACK_CONN_PCK,0,1);
+
+      write_msg(c->w_fd,NULL,ACK_CONN_PCK,0);
       free(msg);
       free(buf);
       return c;
@@ -226,8 +171,13 @@ char * mm_read(Connection * c, int * size){
   memcpy(buf,m->data,m->size);
   int i;
   if(m->type == DELETE_CONN_PCK){
-       //i = findConn(m->pid);
-       //deleteConn(i);
+      int o_pid=atoi(buf);
+      int pid = getpid();
+      char r_addr[20], w_addr[20];
+      sprintf(r_addr,"/tmp/r%d",o_pid);
+      sprintf(w_addr,"/tmp/w%d",o_pid);
+      remove(r_addr);
+      remove(w_addr);
       free(msg);
       free(buf);
       return  NULL;
@@ -240,33 +190,6 @@ char * mm_read(Connection * c, int * size){
 
 }
 
-
-/*
-static void increaseConns(){
-  conns=(Connection **)realloc(conns,
-  sizeof(Connection *)*(s_conns+INCREMENT));
-  s_conns+=INCREMENT;
-}
-*/
-/*  
- static void deleteConn(int i){
-  Connection * c = conns[i];
-  close(c->w_fd);
-  free(c);
-  for(;i < n_conns-1;i++){
-    conns[i]=conns[i+1];
-  }
-  conns[n_conns]=NULL;
-  n_conns--;
-}
-*/
-
-/*
-static Connection * emptyConnection(){
-  return newConnection(0,0,0);
-}
-*/
-
 static Connection * newConnection(int w,int r){
   Connection * ans = malloc(sizeof(Connection));
   if (ans == NULL) {
@@ -276,12 +199,3 @@ static Connection * newConnection(int w,int r){
   ans->r_fd=r;
   return ans;
 }
-
-/*
-Address * newAddress(const char * f,int p){
-  Address * ans = malloc(sizeof(Address));
-  ans->fifo=f;
-  ans->pid=p;
-  return ans;
-}
-*/
