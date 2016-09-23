@@ -431,7 +431,9 @@ void * attend(void * a)
      int8_t * buf = malloc(BUF_SIZE);
      int64_t buf_size = BUF_SIZE;
      int len;
-     
+     sleep(2);
+     write(w_fd, "hola", 5);
+     sleep(20);
      /* expects non-blocking read */
      while ( ( buf = mm_read(con, &len)) > 0) {
 	  write(w_fd, buf, len);
@@ -468,7 +470,7 @@ typedef struct InfoPthread
 } InfoPthread;
 
 
-int64_t add_attender(AttrPthread * attr_arr [], int64_t * attr_i, int64_t * nfds, Connection * con)
+int64_t add_attender(AttrPthread * attr_arr [], fd_set * r_set, int64_t * attr_i, int * nfds, Connection * con)
 {
      AttrPthread * attr_p;
      Attender * attender;
@@ -478,6 +480,8 @@ int64_t add_attender(AttrPthread * attr_arr [], int64_t * attr_i, int64_t * nfds
      attender = malloc(sizeof(Attender));
      attr_p = malloc(sizeof(AttrPthread));
      if (!attender||!attr_p) {
+	  free(attender);
+	  free(attr_p);
 	  return -1;
      }
      attender->con = con;
@@ -486,6 +490,7 @@ int64_t add_attender(AttrPthread * attr_arr [], int64_t * attr_i, int64_t * nfds
      pthread_create(&pt, NULL, attend, attender);
      attr_p->p = pt;
      attr_p->r_fd = fd[0];
+     FD_SET(fd[0], r_set);
      attr_arr[*attr_i++] = attr_p;
      if (*nfds < fd[0] + 1) {
 	  *nfds = fd[0] + 1;
@@ -508,7 +513,8 @@ int main(void)
      Attender * attender = malloc(sizeof(Attender));
      AttrPthread attr_pthread;
      InfoPthread info_pthread;
-     int sflag, q, nfds, pth_size, max_size = 1000;
+     int sflag, q = 0, nfds = 0, pth_size, max_size = 1000;
+     int64_t attr_i = 0;
      fd_set r_set;
      struct timeval timeout;
      AttrPthread * pths[10];
@@ -529,14 +535,20 @@ int main(void)
      if ( (c = mm_accept(lp)) != 0) {
 	  /* established conection on c, needs to create thread */
 	  printf("conexion establecida. Creando thread.\n");
-	  pipe(fd);
+	  add_attender(pths, &r_set, &attr_i, &nfds, c);
+	  printf("thread creado..\n");
+	  getchar();
+	  
+	  
+//pipe(fd);
+	  /*
 	  attender->con = c;
 	  /* attender recieves write end */
-	  attender->w_fd = fd[1];
-	  pthread_create(&p, NULL, attend, attender);
+	  //attender->w_fd = fd[1];
+	  //pthread_create(&p, NULL, attend, attender);
 	  /* main thread keeps read end */
-	  attr_pthread.r_fd = fd[0];
-	  attr_pthread.p = p;
+	  //attr_pthread.r_fd = fd[0];
+	  //attr_pthread.p = p;
      }
      else {
 	  srv_exit();

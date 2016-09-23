@@ -1,10 +1,14 @@
 #ifndef COMMS_H
 #define COMMS_H
 
+struct address {
+  const char * fifo;
+} ;
+
 typedef struct address Address ;
 typedef struct connection Connection ;
-typedef struct listener Listener;
-typedef struct Listener * Listener_p;
+typedef struct Listener Listener;
+typedef Listener * Listener_p;
 
 /*
 ** Subscribes the caller process to the channel,
@@ -18,7 +22,7 @@ Listener_p mm_listen(Address * addr);
 ** accepting process the new channels through which
 ** they should communicate in the future.
 */
-Connection * mm_connect(Listener_p l,Address * addr);
+Connection * mm_connect(Address * addr);
 
 /*
 ** Disconnects the caller process from a connection.

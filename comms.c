@@ -29,19 +29,9 @@ struct message{
 
 typedef struct message Message;
 
-/*
-** This struct contains the address of the
-** fifo where the process should be contacted
-** in order to establish a connection.
-*/
-struct address {
-  const char * fifo;
-} ;
-
-
-struct listener {
+typedef struct Listener {
      int l_fd;
-};
+} Listener;
 
 struct connection {
   int w_fd;
@@ -69,7 +59,7 @@ Listener_p mm_listen(Address * addr){
 }
 
 /* */
-Connection * mm_connect(Listener_p l,Address * addr){
+Connection * mm_connect(Address * addr){
   if(addr == NULL){
     return NULL;
   }
@@ -146,18 +136,22 @@ static int write_msg(int w_fd,const char * m,int type,int size){
 Connection * mm_accept(Listener_p l){
      int64_t len;
   void * msg = malloc(sizeof(Message));
-
+  
   if ((len = read(l->l_fd,msg,sizeof(Message))) < 0) {
+    printf("hhh.\n");
     return NULL;
   }
+  
   Message * m = (Message *)msg;
   char * buf = malloc(m->size);
   memcpy(buf,m->data,m->size);
   int w_fd,i,r_fd;
+  
   if(m->type == ADD_CONN_PCK){
        w_fd= open(buf,O_WRONLY);
       r_fd= open(buf+strlen(buf)+1,O_RDONLY|O_NONBLOCK);
       if (w_fd < 0 || r_fd < 0) {
+	
 	   return NULL;
       }
       Connection * c = newConnection(w_fd, r_fd);
@@ -165,8 +159,10 @@ Connection * mm_accept(Listener_p l){
       write_msg(c->w_fd,NULL,ACK_CONN_PCK,0);
       free(msg);
       free(buf);
+      
       return c;
   }
+  
   return NULL;
 }
 
