@@ -1,19 +1,9 @@
 #ifndef COMMS_H
 #define COMMS_H
 
-/*
-** Declarations
-*/
-
-/*
-** This struct contains the address of the
-** fifo where the process should be contacted
-** in order to establish a connection.
-*/
-typedef struct address {
-  const char * fifo;
-} Address;
+typedef struct address Address ;
 typedef struct connection Connection ;
+typedef struct listener Listener;
 typedef struct Listener * Listener_p;
 
 /*
@@ -28,7 +18,7 @@ Listener_p mm_listen(Address * addr);
 ** accepting process the new channels through which
 ** they should communicate in the future.
 */
-Connection * mm_connect(Address * addr);
+Connection * mm_connect(Listener_p l,Address * addr);
 
 /*
 ** Disconnects the caller process from a connection.
