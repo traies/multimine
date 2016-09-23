@@ -431,12 +431,10 @@ void * attend(void * a)
      int8_t * buf = malloc(BUF_SIZE);
      int64_t buf_size = BUF_SIZE;
      int len;
-     sleep(2);
-     write(w_fd, "hola", 5);
-     sleep(20);
-     /* expects non-blocking read */
+     
+     /* expects blocking read */
      while ( ( buf = mm_read(con, &len)) > 0) {
-	  write(w_fd, buf, len);
+       write(w_fd, buf, len);
      }
      
      pthread_exit(0);
@@ -450,7 +448,7 @@ void inform(int r_fd, Connection * con)
 
      printf("thread inform.\n");
      
-     /* expects non-blocking read */
+     /* expects blocking read */
      while((len = read(r_fd, buf, max_size)) > 0) {
 	  mm_write(con, buf, len);
      }
@@ -491,7 +489,8 @@ int64_t add_attender(AttrPthread * attr_arr [], fd_set * r_set, int64_t * attr_i
      attr_p->p = pt;
      attr_p->r_fd = fd[0];
      FD_SET(fd[0], r_set);
-     attr_arr[*attr_i++] = attr_p;
+     attr_arr[*attr_i] = attr_p;
+     *attr_i = *attr_i + 1;
      if (*nfds < fd[0] + 1) {
 	  *nfds = fd[0] + 1;
      }
@@ -513,17 +512,17 @@ int main(void)
      Attender * attender = malloc(sizeof(Attender));
      AttrPthread attr_pthread;
      InfoPthread info_pthread;
-     int sflag, q = 0, nfds = 0, pth_size, max_size = 1000;
+     int sflag, q = 0, nfds = 0, max_size = 1000;
      int64_t attr_i = 0;
      fd_set r_set;
      struct timeval timeout;
      AttrPthread * pths[10];
-     
+     int count = 0;
      timeout.tv_sec = 10;
      timeout.tv_usec = 0;
      
      signal(SIGINT,sig_handler);
-     
+     system("rm /tmp/mine_serv");
      /* setting fifo path */
      sprintf(fifo, "/tmp/mine_serv");
      srv_addr.fifo = fifo;
@@ -532,13 +531,12 @@ int main(void)
      lp = mm_listen(&srv_addr);
      
      /* wait for connections */
-     if ( (c = mm_accept(lp)) != 0) {
+     while ( count < 2 && (c = mm_accept(lp)) != 0) {
 	  /* established conection on c, needs to create thread */
 	  printf("conexion establecida. Creando thread.\n");
 	  add_attender(pths, &r_set, &attr_i, &nfds, c);
 	  printf("thread creado..\n");
-	  getchar();
-	  
+	  count++;
 	  
 //pipe(fd);
 	  /*
@@ -550,21 +548,23 @@ int main(void)
 	  //attr_pthread.r_fd = fd[0];
 	  //attr_pthread.p = p;
      }
-     else {
+     if (count < 2) {
 	  srv_exit();
      }
 
      while (!q) {
 	  sflag = select(nfds, &r_set, NULL, NULL, &timeout);
+	  timeout.tv_sec = 10;
 	  if (sflag < 0) {
 	       /* timeout expired */
+	       srv_exit();
 	  }
 	  else {
-	       for(int i = 0; i < pth_size; i++) {
+	       for(int i = 0; i < attr_i; i++) {
 		    if (FD_ISSET(pths[i]->r_fd, &r_set)) {
-			      /* read fd */
-			      read(pths[i]->r_fd,buf,max_size);
-			      printf(buf);
+			 /* read fd */
+			 read(pths[i]->r_fd,buf,max_size);
+			 printf(buf);
 		    }
 		    else {
 			 FD_SET(pths[i]->r_fd, &r_set);

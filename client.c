@@ -124,7 +124,7 @@ int main()
      char buf[50];
      */
      Address srv_addr;
-     
+     char buf[200], buf2[200];
      /* setting fifo path */
      
      sprintf(fin, "/tmp/r%d", getpid());
@@ -135,14 +135,20 @@ int main()
      /* setup communications */
      srv_addr.fifo = "/tmp/mine_serv";
      Connection * c = mm_connect(&srv_addr);
-     sleep(1);
      if (!c) {
 	  printf("no se pudo subscribir.\n");
 	  cli_exit();
 	  return 0;
      }
      printf("suscrito.\n");
-
+     while(1){
+	  scanf("%s", buf);
+	  sprintf(buf2, "%s\n", buf);
+	  mm_write(c, buf2, strlen(buf2)+1);
+	  getchar();
+     }
+     
+     
 /*
      connections[0] = conn(msgh, "tmp/mine_serv", fin, fout, 10, 0, 5);
      if (connections[0] < 0) {
