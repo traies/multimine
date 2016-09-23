@@ -17,16 +17,9 @@
 #define COLS 50
 #define ROWS 10
 #define MINES 100
-
+#define BUF_SIZE 100
 struct Sector;
 struct SectorNode;
-
-typedef struct attender
-{
-     Connection * con;
-     int pipe_fd;
-} Attender;
-
 
 typedef struct
 {
@@ -423,30 +416,27 @@ void sig_handler(int signo)
      return;
 }
 
+typedef struct attender
+{
+     Connection * con;
+     int w_fd;
+} Attender;
+
 /* attendants threads run here */
 void * attend(void * a)
 {
-     Connection * con;
      Attender * attr = (Attender *) a ;
-     int8_t * buf;
-     int len, w_fd;
-     if (a == NULL) {
-	  pthread_exit(NULL);
-     }
-     con =  attr->con;
-     w_fd = attr->pipe_fd;
-     
-     printf("insert.\n");
-     getchar();
-     write(w_fd, "algo", 5);
+     Connection * con = attr->con;
+     int w_fd = attr->w_fd;
+     int8_t * buf = malloc(BUF_SIZE);
+     int64_t buf_size = BUF_SIZE;
+     int len;
      
      /* expects non-blocking read */
-     /*
-     while ((buf = mm_read(con, &len)) > 0) {
+     while ( ( buf = mm_read(con, &len)) > 0) {
 	  write(w_fd, buf, len);
      }
-     */
-     //exit(0);
+     
      pthread_exit(0);
 }
 
@@ -465,20 +455,66 @@ void inform(int r_fd, Connection * con)
      pthread_exit(0);
 }
 
+typedef struct AttrPthread
+{
+  pthread_t p;
+  int r_fd;
+} AttrPthread;
 
+typedef struct InfoPthread
+{
+  pthread_t p;
+  int w_fd;
+} InfoPthread;
+
+
+int64_t add_attender(AttrPthread * attr_arr [], int64_t * attr_i, int64_t * nfds, Connection * con)
+{
+     AttrPthread * attr_p;
+     Attender * attender;
+     int fd[2];
+     pthread_t pt;
+     
+     attender = malloc(sizeof(Attender));
+     attr_p = malloc(sizeof(AttrPthread));
+     if (!attender||!attr_p) {
+	  return -1;
+     }
+     attender->con = con;
+     pipe(fd);
+     attender->w_fd = fd[1];
+     pthread_create(&pt, NULL, attend, attender);
+     attr_p->p = pt;
+     attr_p->r_fd = fd[0];
+     attr_arr[*attr_i++] = attr_p;
+     if (*nfds < fd[0] + 1) {
+	  *nfds = fd[0] + 1;
+     }
+     return 0;
+}
+
+     
 int main(void)
 {
-     Listener_p lp = NULL;
+     Listener_p lp;
      pthread_t p;
      Address srv_addr;
      int64_t size;
      Connection * c = NULL;
      int64_t rows = ROWS, cols = COLS, mines = MINES;
      Minefield * minef;
-     struct timespec ftime;
      char fifo[20], buf[25];
      int fd[2];
      Attender * attender = malloc(sizeof(Attender));
+     AttrPthread attr_pthread;
+     InfoPthread info_pthread;
+     int sflag, q, nfds, pth_size, max_size = 1000;
+     fd_set r_set;
+     struct timeval timeout;
+     AttrPthread * pths[10];
+     
+     timeout.tv_sec = 10;
+     timeout.tv_usec = 0;
      
      signal(SIGINT,sig_handler);
      
@@ -495,13 +531,36 @@ int main(void)
 	  printf("conexion establecida. Creando thread.\n");
 	  pipe(fd);
 	  attender->con = c;
-	  /* attender recieves read end */
-	  attender->pipe_fd = fd[1];
+	  /* attender recieves write end */
+	  attender->w_fd = fd[1];
 	  pthread_create(&p, NULL, attend, attender);
-	  read(fd[0], buf, 10);
+	  /* main thread keeps read end */
+	  attr_pthread.r_fd = fd[0];
+	  attr_pthread.p = p;
+     }
+     else {
 	  srv_exit();
      }
-     
+
+     while (!q) {
+	  sflag = select(nfds, &r_set, NULL, NULL, &timeout);
+	  if (sflag < 0) {
+	       /* timeout expired */
+	  }
+	  else {
+	       for(int i = 0; i < pth_size; i++) {
+		    if (FD_ISSET(pths[i]->r_fd, &r_set)) {
+			      /* read fd */
+			      read(pths[i]->r_fd,buf,max_size);
+			      printf(buf);
+		    }
+		    else {
+			 FD_SET(pths[i]->r_fd, &r_set);
+		    }
+	       }
+	  }
+     }			      
+	  
      printf("player initialization request \n");
      srv_exit();
      //minef = create_minefield(cols, rows, mines);
