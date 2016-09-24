@@ -14,10 +14,10 @@
 #define clamp(a, b, c) max(min(a,c),b)
 #define TRUE 1
 #define FALSE 0
-#define COLS 50
+#define COLS 45
 #define ROWS 10
 #define MINES 100
-#define BUF_SIZE 100
+#define BUF_SIZE 10000
 struct Sector;
 struct SectorNode;
 
@@ -368,6 +368,24 @@ int64_t uncover_sector(Minefield_p m, int64_t x, int64_t y, int64_t (*retbuf)[3]
      return c;
 }
 
+int64_t update_minefield(Minefield * m, int64_t x, int64_t y, UpdateStruct * us) 
+{
+     int64_t count = 0, base_index;
+     int64_t buf[1000][3];
+     if (m == NULL || us == NULL || x < 0 || y < 0 || x >= m->cols || y >= m->rows) {
+	  return -1;
+     }
+     base_index = us->len;
+     count = uncover_sector(m, x, y, buf);
+     for (int i=0; i < count; i++) {
+	  us->tiles[base_index+i].x = buf[i][0];
+	  us->tiles[base_index+i].y = buf[i][1];
+	  us->tiles[base_index+i].nearby = buf[i][2];
+     }
+     us->len += count;
+     return count;
+}
+
 Tile * uncover_tile(Minefield * m, uint64_t x, uint64_t y)
 {
      Tile * t;
@@ -451,8 +469,8 @@ void * inform(void * a)
      Informer * info = (Informer *) a;
      Connection * con = info->con;
      int r_fd = info->r_fd;
-     int8_t buf[200];
-     int64_t len, buf_size = 200;
+     int8_t buf[BUF_SIZE];
+     int64_t len, buf_size = BUF_SIZE;
      
      /* expects blocking read */
      while((len = read(r_fd, buf, buf_size)) > 0) {
@@ -518,13 +536,21 @@ int main(void)
      Connection * c = NULL;
      int64_t rows = ROWS, cols = COLS, mines = MINES;
      Minefield * minef;
-     char fifo[20], buf[25];
+     char fifo[20];
      int sflag, q = 0, attr_nfds = 0, info_nfds = 0, max_size = 1000;
-     int64_t cli_i = 0;
+     int64_t cli_i = 0, us_size;
      fd_set r_set, w_set;
      struct timeval timeout;
      ClientPthreads * pths[10];
      int count = 0;
+     QueryStruct qs;
+     UpdateStruct  * us;
+     InitStruct is;
+     us_size = sizeof(int64_t) * cols * rows * 3;
+     us = malloc(us_size);
+     us->len = 0;
+     
+     int8_t u_flag = 0;
      
      timeout.tv_sec = 10;
      timeout.tv_usec = 0;
@@ -545,26 +571,31 @@ int main(void)
 	  add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c);
 	  printf("thread creado..\n");
 	  count++;
-	  
-	  /*pipe(fd);
-	  /*
-	  attender->con = c;
-	  /* attender recieves write end */
-	  //attender->w_fd = fd[1];
-	  //pthread_create(&p, NULL, attend, attender);
-	  /* main thread keeps read end */
-	  //attr_pthread.r_fd = fd[0];
-	  //attr_pthread.p = p;
      }
      if (count < 1) {
+	  /* connections failed */
 	  srv_exit();
      }
-
+     /* create minefield */
+     minef = create_minefield(cols, rows, mines);
+     is.cols = cols;
+     is.rows = rows;
+     is.mines = mines;
+     /* send game info to clients */
+     for (int i = 0; i < cli_i; i++) {
+	  write(pths[i]->w_fd, (char *) &is, sizeof(InitStruct));
+     }
+     
      while (!q) {
 	  /* read() */
 	  sflag = select(attr_nfds, &r_set, NULL, NULL, &timeout);
 	  timeout.tv_sec = 10;
-	  
+	  if (sflag == 0) {
+	       for (int i = 0; i < cli_i; i++) {
+		    FD_SET(pths[i]->r_fd, &r_set);
+	       }
+	       printf("listening...\n");
+	  }
 	  if (sflag < 0) {
 	       /* timeout expired*/
 	       srv_exit();
@@ -572,10 +603,15 @@ int main(void)
 	  else if (sflag > 0){
 	       for(int i = 0; i < cli_i; i++) {
 		    if (FD_ISSET(pths[i]->r_fd, &r_set)) {
-			 /* read fd */ 
-			 read(pths[i]->r_fd,buf,max_size);
-			 /* update(Minefield * m, QueryStruct * qs, Queue * q) */
-			 printf("%s\n", buf);
+			 /* read fd */
+			 if (read(pths[i]->r_fd,(char *) &qs,max_size) > 0) {
+			      
+			 /* update_minefield(Minefield * m, QueryStruct * qs) */
+			 //	 printf("%s\n", buf);
+			      printf("x: %d y: %d\n",(int)qs.x,(int)qs.y);
+			      update_minefield(minef, qs.x, qs.y, us);
+			      u_flag = 1;
+			 }
 		    }
 		    else {
 			 FD_SET(pths[i]->r_fd, &r_set);
@@ -584,11 +620,22 @@ int main(void)
 	       /* send to all 
 	       
 		  while(!FD_EMPTY(&w_set)) { 
-	             select(info_nfds, NULL, &w_set, NULL, &timeout) 
+	             select(info_nfds, NULL, &w_set, NULL, &timeout);
 	       */
-	       
-	       for (int i = 0; i < cli_i; i++) {
-		    write(pths[i]->w_fd, "hello\n", 7);
+	       if (u_flag){ 
+		    /*UpdateStruct us = fetch_updates(m);*/
+	       //   int64_t u_struct_s = sizeof(m->u_struct);
+		    printf("%d\n",us->len);
+		    
+		    for (int i = 0; i < us->len; i++) {
+			 printf("unveieled x:%d y:%d n:%d \n", us->tiles[i].x, us->tiles[i].y, us->tiles[i].nearby);
+		    }
+		    
+		    for (int i = 0; i < cli_i; i++) {
+			 write(pths[i]->w_fd, (char *) us, sizeof(int64_t) + sizeof(int8_t) * 3 * us->len);
+		    }
+		    us->len = 0;    
+		    u_flag = 0;
 	       }
 	  }
      }			      

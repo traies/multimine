@@ -1,9 +1,34 @@
 #ifndef COMMS_H
 #define COMMS_H
 
+#include <stdint.h>
 struct address {
   const char * fifo;
 } ;
+
+typedef struct InitStruct
+{
+     int64_t rows;
+     int64_t cols;
+     int64_t mines;
+} InitStruct;
+
+typedef struct QueryStruct 
+{
+     int x;
+     int y;
+} QueryStruct;
+
+typedef struct UpdateStruct
+{
+     int64_t len;
+     struct TileUpdate 
+     {
+	  int8_t x;
+	  int8_t y;
+	  int8_t nearby;
+     } tiles [];
+} UpdateStruct;
 
 typedef struct address Address ;
 typedef struct connection Connection ;
