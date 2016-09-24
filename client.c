@@ -127,12 +127,12 @@ int main()
      char buf[200], buf2[200];
      char srv_info[200];
      /* setting fifo path */
-     
+
      sprintf(fin, "/tmp/r%d", getpid());
      sprintf(fout, "/tmp/w%d", getpid());
-     
+
      signal(SIGINT, sig_handler);
-     
+
      /* setup communications */
      srv_addr.fifo = "/tmp/mine_serv";
      Connection * c = mm_connect(&srv_addr);
@@ -144,15 +144,17 @@ int main()
      printf("suscrito.\n");
      int len, max_size = 100;
      while(1){
-	  scanf("%s", buf);
-	  mm_write(c, buf, strlen(buf)+1);
-	  
+       scanf("%s", buf);
+  +	  sprintf(buf2, "%s\n", buf);
+  +	  mm_write(c, buf2, strlen(buf2)+1);
+
+
 	  if ((len = mm_read(c, srv_info, max_size)) > 0) {
-	       printf("%s\n",srv_info);
+	       printf("%s lei %d\n",srv_info,len);
 	  }
      }
-     
-     
+
+
 /*
      connections[0] = conn(msgh, "tmp/mine_serv", fin, fout, 10, 0, 5);
      if (connections[0] < 0) {

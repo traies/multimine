@@ -9,6 +9,18 @@
 #include <signal.h>
 #include <marsh.h>
 #include <pthread.h>
+ #include <mqueue.h>
+#include <string.h>
+
+
+
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/select.h>
+
+#define NORMAL_PR 0
+#define WARNING_PR 1000
+#define ERR_PR sysconf(_SC_MQ_PRIO_MAX) - 1
 #define min(a,b)    ((a < b)? a:b)
 #define max(a,b)    ((a < b)? b:a)
 #define clamp(a, b, c) max(min(a,c),b)
@@ -431,7 +443,7 @@ void * attend(void * a)
      int8_t * buf = malloc(BUF_SIZE);
      int64_t buf_size = BUF_SIZE;
      int len;
-     
+
      /* expects blocking read */
      while ((len = mm_read(con, buf, buf_size)) > 0) {
 	  write(w_fd, buf, len);
@@ -439,7 +451,7 @@ void * attend(void * a)
      pthread_exit(0);
 }
 
-typedef struct Informer 
+typedef struct Informer
 {
      Connection * con;
      int r_fd;
@@ -453,7 +465,7 @@ void * inform(void * a)
      int r_fd = info->r_fd;
      int8_t buf[200];
      int64_t len, buf_size = 200;
-     
+
      /* expects blocking read */
      while((len = read(r_fd, buf, buf_size)) > 0) {
 	  mm_write(con, buf, len);
@@ -476,7 +488,7 @@ int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set, 
      Informer * informer;
      int attr_fd[2], info_fd[2];
      pthread_t pt_attr, pt_info;
-     
+
      cli_p = malloc(sizeof(ClientPthreads));
      attender = malloc(sizeof(Attender));
      informer = malloc(sizeof(Informer));
@@ -510,11 +522,12 @@ int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set, 
      return 0;
 }
 
-     
+
 int main(void)
 {
      Listener_p lp;
      Address srv_addr;
+     Address srv_addr_mq;
      Connection * c = NULL;
      int64_t rows = ROWS, cols = COLS, mines = MINES;
      Minefield * minef;
@@ -525,27 +538,44 @@ int main(void)
      struct timeval timeout;
      ClientPthreads * pths[10];
      int count = 0;
-     
+
      timeout.tv_sec = 10;
      timeout.tv_usec = 0;
-     
+
      signal(SIGINT,sig_handler);
      system("rm /tmp/mine_serv");
      /* setting fifo path */
      sprintf(fifo, "/tmp/mine_serv");
      srv_addr.fifo = fifo;
-     
+     srv_addr_mq.fifo="/tmp/mq";
+     lp = mm_listen(&srv_addr_mq);
+     system("gnome-terminal -x ./mq.out");
+
+
+     while ( (c = mm_accept(lp)) == NULL) ;
+       char msg[100]="";
+       while(strcmp(msg,"got_connected") != 0){
+       mm_read(c,msg,strlen("got_connected")+1);
+     }
+     mqd_t mqd = mq_open("/mq",O_WRONLY);
+       mq_send(mqd,"NORMAL MSG",strlen("NORMAL MSG")+1,NORMAL_PR);
+ mq_send(mqd,"WARNING MSG",strlen("WARNING MSG")+1,WARNING_PR);
+         mq_send(mqd,"ERROR MSG",strlen("ERROR MSG")+1,ERR_PR);
+
+
+
      /* open connection */
      lp = mm_listen(&srv_addr);
-     
+
      /* wait for connections */
      while ( count < 1 && (c = mm_accept(lp)) != NULL) {
 	  /* established conection on c, needs to create thread */
 	  printf("conexion establecida. Creando thread.\n");
 	  add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c);
 	  printf("thread creado..\n");
+   mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
 	  count++;
-	  
+
 	  /*pipe(fd);
 	  /*
 	  attender->con = c;
@@ -564,7 +594,7 @@ int main(void)
 	  /* read() */
 	  sflag = select(attr_nfds, &r_set, NULL, NULL, &timeout);
 	  timeout.tv_sec = 10;
-	  
+
 	  if (sflag < 0) {
 	       /* timeout expired*/
 	       srv_exit();
@@ -572,7 +602,7 @@ int main(void)
 	  else if (sflag > 0){
 	       for(int i = 0; i < cli_i; i++) {
 		    if (FD_ISSET(pths[i]->r_fd, &r_set)) {
-			 /* read fd */ 
+			 /* read fd */
 			 read(pths[i]->r_fd,buf,max_size);
 			 /* update(Minefield * m, QueryStruct * qs, Queue * q) */
 			 printf("%s\n", buf);
@@ -581,18 +611,18 @@ int main(void)
 			 FD_SET(pths[i]->r_fd, &r_set);
 		    }
 	       }
-	       /* send to all 
-	       
-		  while(!FD_EMPTY(&w_set)) { 
-	             select(info_nfds, NULL, &w_set, NULL, &timeout) 
+	       /* send to all
+
+		  while(!FD_EMPTY(&w_set)) {
+	             select(info_nfds, NULL, &w_set, NULL, &timeout)
 	       */
-	       
+
 	       for (int i = 0; i < cli_i; i++) {
 		    write(pths[i]->w_fd, "hello\n", 7);
 	       }
 	  }
-     }			      
-	  
+     }
+
      printf("player initialization request \n");
      srv_exit();
      //minef = create_minefield(cols, rows, mines);
