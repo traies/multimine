@@ -1,3 +1,9 @@
+#if __STDC_VERSION__ >= 199901L
+#define _XOPEN_SOURCE 600
+#else
+#define _XOPEN_SOURCE 500
+#endif /* __STDC_VERSION__ */
+
 #include <ncurses.h>
 #include <string.h>
 #include <stdio.h>
@@ -115,7 +121,18 @@ void sig_handler(int signo)
      return;
 }
 
-
+void time_diff(struct timespec * diff, struct timespec * init, struct timespec * end)
+{
+     diff->tv_sec = end->tv_sec - init->tv_sec;
+     if ( end->tv_nsec - init->tv_nsec < 0) {
+	  diff->tv_nsec = 1000000000 + end->tv_nsec - init->tv_nsec;
+	  diff->tv_sec--;
+     }
+     else {
+	  diff->tv_nsec = end->tv_nsec - init->tv_nsec;
+     }
+     return;
+}
 
 int main()
 {
@@ -152,8 +169,9 @@ int main()
      int64_t c, x, y, win_h, win_w,  mb_size_1 = 0, mb_size_2 = 0, count = 0, auxi = 0, auxj = 0, marks = 0;
      int8_t auxx, auxy, auxn;
      int64_t utiles = 0;
-     int8_t win_flag = FALSE, loose_flag = FALSE;
-
+     int8_t win_flag = FALSE, loose_flag = FALSE, quit_flag = FALSE;
+     struct timespec init_frame_time, end_frame_time, diff_frame_time;
+     struct timeval select_timeout;
      int64_t ** mine_buffer = NULL, (*mine_buffer_aux)[3] = NULL;
      WINDOW * win, * win_side;
 
@@ -206,6 +224,7 @@ int main()
      keypad(stdscr, TRUE);
      /* disable echoing typed chars */
      noecho();
+     
      /* set cursor to invisible */
      //curs_set(0);
      refresh();
@@ -221,18 +240,16 @@ int main()
      wmove(win,y,x);
      wrefresh(win);
 
-     //wattrset(win, COLOR_PAIR(2));
-     while(!win_flag && !loose_flag && (c=toupper(getch())) != 'Q') {
-	  switch(c) {
-	  case 'X':
-	       if (mine_buffer[x-1][y-1] == 10){
-		    break;
-	       }
-	       qs.x = x-1;
-	       qs.y = y-1;
-	       mm_write(con, (char *) &qs, sizeof(QueryStruct));
-	       mm_read(con, (char *) us, us_size);
+     /* enable non-blocking getch with delay */
+     timeout(5);
 
+     //wattrset(win, COLOR_PAIR(2));
+     while(!win_flag && !loose_flag && !quit_flag) {
+	  clock_gettime(CLOCK_REALTIME,&init_frame_time);
+	  select_timeout.tv_sec = 0;
+	  select_timeout.tv_usec = 5000L;
+	  if (mm_select(con, &select_timeout) > 0) {
+	       mm_read(con, (char *) us, us_size);
 	       count = us->len;
 	       update_marks(win_side,count);
 	       wmove(win,y,x);
@@ -262,6 +279,18 @@ int main()
 			 win_flag = TRUE;
 		    }
 	       }
+	  }
+	  switch(c=toupper(getch())) {
+	  case 'Q':
+	       quit_flag = TRUE;
+	       break;
+	  case 'X':
+	       if (mine_buffer[x-1][y-1] == 10){
+		    break;
+	       }
+	       qs.x = x-1;
+	       qs.y = y-1;
+	       mm_write(con, (char *) &qs, sizeof(QueryStruct));
 	       break;
 	  case ' ':
 	       if (mine_buffer[x-1][y-1] < 0 || mine_buffer[x-1][y-1] == 10) {
@@ -303,7 +332,7 @@ int main()
 	       clear();
 	       refresh();
 	       win = create_window(win_h, win_w, (LINES - win_h) / 2 , (COLS - win_w) / 2);
-	       draw_minefield(win,mine_buffer,cols,rows, 1, 2);
+	       draw_minefield(win,mine_buffer,cols,rows, 3, 4);
 	       wrefresh(win);
 
 	       win_side = create_window(win_h, win_w, (LINES - win_h) / 2, (COLS - win_w) / 2 + win_w);
@@ -314,10 +343,14 @@ int main()
 	       wmove(win,y,x);
 	       wrefresh(win);
 	       break;
+	  case ERR:
+	       break;
 	  default:
 	       break;
-
 	  }
+	  clock_gettime(CLOCK_REALTIME, &end_frame_time);
+	  time_diff(&diff_frame_time,&init_frame_time,&end_frame_time);
+	  nanosleep(&diff_frame_time,NULL);
 	  wrefresh(win);
      }
      if (win_flag) {

@@ -1,3 +1,10 @@
+#if __STDC_VERSION__ >= 199901L
+#define _XOPEN_SOURCE 600
+#else
+#define _XOPEN_SOURCE 500
+#endif /* __STDC_VERSION__ */
+
+
 #include <comms.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -14,7 +21,7 @@
 #define DELETE_CONN_PCK 9
 #define ADD_CONN_PCK 10
 #define ACK_CONN_PCK 11
-#define DATASIZE 12000
+#define DATASIZE 4000
 
 /*
 ** All the information required to
@@ -169,7 +176,17 @@ Connection * mm_accept(Listener_p l){
   return NULL;
 }
 
-int  mm_read(Connection * c, char buf[], int size)
+int mm_select(Connection * c, struct timeval * timeout)
+{
+     fd_set r_set;
+     if (c == NULL) {
+	  return -1;
+     }
+     FD_SET(c->r_fd, &r_set);
+     return select(c->r_fd + 1, &r_set, NULL, NULL, timeout);
+}
+
+int mm_read(Connection * c, char buf[], int size)
 {
      int len;
      Message m;

@@ -1,7 +1,16 @@
 #ifndef COMMS_H
 #define COMMS_H
 
+#if __STDC_VERSION__ >= 199901L
+#define _XOPEN_SOURCE 600
+#else
+#define _XOPEN_SOURCE 500
+#endif /* __STDC_VERSION__ */
+
+
 #include <stdint.h>
+#include <sys/time.h>
+
 struct address {
   const char * fifo;
 } ;
@@ -54,6 +63,7 @@ Connection * mm_connect(Address * addr);
 */
 void mm_disconnect(Connection * c);
 
+int mm_select(Connection * c, struct timeval * timeout);
 /*
 ** Waits for connections at the given listening port.
 */

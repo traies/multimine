@@ -594,7 +594,7 @@ int main(void)
      lp = mm_listen(&srv_addr);
 
      /* wait for connections */
-     while ( count < 1 && (c = mm_accept(lp)) != NULL) {
+     while ( count < 2 && (c = mm_accept(lp)) != NULL) {
 	     /*
 	  mqd_t mqd = mq_open("/mq",O_WRONLY);
       	  mq_send(mqd,"NORMAL MSG",strlen("NORMAL MSG")+1,NORMAL_PR);
@@ -609,7 +609,7 @@ int main(void)
 	  count++;
 
      }
-     if (count < 1) {
+     if (count < 2) {
 	  /* connections failed */
 	  srv_exit();
      }
