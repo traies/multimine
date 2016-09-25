@@ -125,13 +125,13 @@ int main()
      UpdateStruct  * us;
      InitStruct is;
      Connection * con;
-     
+
      /* setting fifo path */
      sprintf(fin, "/tmp/r%d", getpid());
      sprintf(fout, "/tmp/w%d", getpid());
-     
+
      signal(SIGINT, sig_handler);
-     
+
      /* setting up communications */
      srv_addr.fifo = "/tmp/mine_serv";
      con = mm_connect(&srv_addr);
@@ -148,23 +148,7 @@ int main()
 	  printf("no se inicio.\n");
      }
      int len, max_size = 100;
-     /*
-     while(1){
-	  getchar();
-	  mm_write(con, (char *) &qs, sizeof(QueryStruct));
-	  
-	  if ((len = mm_read(con, (char *) &us, max_size)) > 0) {
-	       for (int i=0; i < us.len; i++) {
-		    printf("x: %d y: %d\n",(int) us.tiles[i].x,(int) us.tiles[i].y);
-	       }
-	       /* update_mine_buf(MineBuffer, UpdateStruct)*/
-	       /* print_mine_buf(MineBuffer) *//*
-	  }
-	  }*/
-     
-     /* fifo clean up */
-     
-     
+
      int64_t c, x, y, win_h, win_w,  mb_size_1 = 0, mb_size_2 = 0, count = 0, auxi = 0, auxj = 0, marks = 0;
      int8_t auxx, auxy, auxn;
      int64_t utiles = 0;
@@ -195,15 +179,15 @@ int main()
 	  }
      }
      /* ncurses init */
-     initscr(); 
-     
+     initscr();
+
      if (has_colors() == FALSE) {
 	  endwin();
 	  printf("no color");
 	  return 0;
      }
      /* color initialization */
-     
+
      start_color();
      init_pair(1, COLOR_WHITE, COLOR_BLACK);
      init_pair(2, COLOR_RED, COLOR_BLACK);
@@ -211,34 +195,36 @@ int main()
      init_pair(4, COLOR_RED, COLOR_WHITE);
 
 
-     x = y = 1;
+
      win_h = rows + 2;
      win_w = cols + 2;
+     x = cols / 2 + 1;
+     y = rows / 2 + 1;
      /* disable char buffering */
-     cbreak(); 
+     cbreak();
      /* enable keypad, arrow keys */
      keypad(stdscr, TRUE);
      /* disable echoing typed chars */
-     noecho(); 
+     noecho();
      /* set cursor to invisible */
-     //curs_set(0); 
+     //curs_set(0);
      refresh();
 
      win = create_window(win_h, win_w, (LINES - win_h) / 2, (COLS - win_w) / 2);
      draw_minefield(win, mine_buffer, cols, rows, 1,2);
      wrefresh(win);
-     
+
      win_side = create_window(win_h, win_w / 2, (LINES - win_h) / 2, (COLS - win_w) / 2 + win_w);
      update_mines(win_side, mines);
      update_utiles(win_side, utiles);
      update_marks(win_side, marks);
-     wmove(win,1,1);
+     wmove(win,y,x);
      wrefresh(win);
 
      //wattrset(win, COLOR_PAIR(2));
      while(!win_flag && !loose_flag && (c=toupper(getch())) != 'Q') {
 	  switch(c) {
-	  case '\n':
+	  case 'X':
 	       if (mine_buffer[x-1][y-1] == 10){
 		    break;
 	       }
@@ -246,7 +232,7 @@ int main()
 	       qs.y = y-1;
 	       mm_write(con, (char *) &qs, sizeof(QueryStruct));
 	       mm_read(con, (char *) us, us_size);
-	       
+
 	       count = us->len;
 	       update_marks(win_side,count);
 	       wmove(win,y,x);
@@ -255,7 +241,7 @@ int main()
 			 auxx = us->tiles[i].x;
 			 auxy = us->tiles[i].y;
 			 auxn = us->tiles[i].nearby;
-			 
+
 			 if (mine_buffer[auxx][auxy] == 10) {
 			      marks--;
 			      update_marks(win_side,marks);
@@ -264,7 +250,7 @@ int main()
 			 if (auxn == 9) {
 			      loose_flag = TRUE;
 			 }
-			 
+
 			 mine_buffer[auxx][auxy] = auxn;
 			 draw_tile(win, auxy,auxx,auxn, 3,4);
 		    }
@@ -346,7 +332,7 @@ int main()
 	  wrefresh(win_side);
 	  getch();
      }
-     
+
      cli_exit();
      return 0;
 }
