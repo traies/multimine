@@ -21,7 +21,7 @@
 #define DELETE_CONN_PCK 9
 #define ADD_CONN_PCK 10
 #define ACK_CONN_PCK 11
-#define DATASIZE 4000
+#define DATASIZE 10000
 
 /*
 ** All the information required to

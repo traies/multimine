@@ -29,7 +29,7 @@
 #define COLS 50
 #define ROWS 20
 #define MINES 100
-#define BUF_SIZE 10000
+#define BUF_SIZE 20000
 struct Sector;
 struct SectorNode;
 
@@ -113,7 +113,7 @@ Minefield_p create_minefield(int64_t cols, int64_t rows, int64_t mines)
 	       if (t){
 		    minefield->tiles[c][r]->x = c;
 		    minefield->tiles[c][r]->y = r;
-		    minefield->tiles[c][r]->ownerid = 0;
+		    minefield->tiles[c][r]->ownerid = -1;
 		    minefield->tiles[c][r]->sector = NULL;
 		    minefield->tiles[c][r]->visited = FALSE;
 	       }
@@ -342,7 +342,7 @@ void free_sector(Sector * s)
 }
 
 /* uncovers underlying sector of a given tile */
-int64_t uncover_sector(Minefield_p m, int64_t x, int64_t y, int64_t (*retbuf)[3])
+int64_t uncover_sector(Minefield_p m, int64_t x, int64_t y, int64_t player, int8_t (*retbuf)[4])
 {
      int64_t c=0;
      Tile * t;
@@ -353,10 +353,14 @@ int64_t uncover_sector(Minefield_p m, int64_t x, int64_t y, int64_t (*retbuf)[3]
 	  return -1;
      }
      t = m->tiles[x][y];
+     if (t->ownerid >= 0) {
+	  return -1;
+     }
      if (t->ismine) {
 	  retbuf[c][0] = x;
 	  retbuf[c][1] = y;
 	  retbuf[c][2] = 9;
+	  retbuf[c][3] = player;
 	  c++;
 	  return c;
      }
@@ -369,30 +373,32 @@ int64_t uncover_sector(Minefield_p m, int64_t x, int64_t y, int64_t (*retbuf)[3]
      for (int i=0; i < s->size; i++){
 	  t = sn->tile;
 	  sn = sn->next;
-	  if (t->ownerid == 0) {
-	       t->ownerid = 1;
+	  if (t->ownerid < 0) {
+	       t->ownerid = player;
 	       retbuf[c][0] = t->x;
 	       retbuf[c][1] = t->y;
 	       retbuf[c][2] = t->nearby;
+	       retbuf[c][3] = t->ownerid;
 	       c++;
 	  }
      }
      return c;
 }
 
-int64_t update_minefield(Minefield * m, int64_t x, int64_t y, UpdateStruct * us)
+int64_t update_minefield(Minefield * m, int64_t x, int64_t y, int64_t player, UpdateStruct * us)
 {
      int64_t count = 0, base_index;
-     int64_t buf[1000][3];
+     int8_t buf[BUF_SIZE][4];
      if (m == NULL || us == NULL || x < 0 || y < 0 || x >= m->cols || y >= m->rows) {
 	  return -1;
      }
      base_index = us->len;
-     count = uncover_sector(m, x, y, buf);
+     count = uncover_sector(m, x, y, player,buf);
      for (int i=0; i < count; i++) {
 	  us->tiles[base_index+i].x = buf[i][0];
 	  us->tiles[base_index+i].y = buf[i][1];
 	  us->tiles[base_index+i].nearby = buf[i][2];
+	  us->tiles[base_index+i].player = buf[i][3];
      }
      us->len += count;
      return count;
@@ -562,7 +568,7 @@ int main(void)
      QueryStruct qs;
      UpdateStruct  * us;
      InitStruct is;
-     us_size = sizeof(int64_t) * cols * rows * 3;
+     us_size = cols * rows * 4 + sizeof(int64_t);
      us = malloc(us_size);
      us->len = 0;
 
@@ -603,7 +609,7 @@ int main(void)
 */
 	  /* established conection on c, needs to create thread */
 	  printf("conexion establecida. Creando thread.\n");
-	  add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c, sizeof(QueryStruct), sizeof(int64_t) + 3 * rows * cols);
+	  add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c, sizeof(QueryStruct), sizeof(int64_t) + 4 * rows * cols);
 	  printf("thread creado..\n");
   // 	  mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
 	  count++;
@@ -647,8 +653,8 @@ int main(void)
 
 			 /* update_minefield(Minefield * m, QueryStruct * qs) */
 			 //	 printf("%s\n", buf);
-			      printf("x: %d y: %d\n",(int)qs.x,(int)qs.y);
-			      update_minefield(minef, qs.x, qs.y, us);
+			      printf("x: %d y: %d player:%d\n",(int)qs.x,(int)qs.y, (int) i);
+			      update_minefield(minef, qs.x, qs.y, i, us);
 			      u_flag = 1;
 			 }
 		    }
@@ -668,11 +674,11 @@ int main(void)
 		    printf("%d\n",us->len);
 
 		    for (int i = 0; i < us->len; i++) {
-			 printf("unveieled x:%d y:%d n:%d \n", us->tiles[i].x, us->tiles[i].y, us->tiles[i].nearby);
+			 printf("unveieled x:%d y:%d n:%d player:%d \n", us->tiles[i].x, us->tiles[i].y, us->tiles[i].nearby, us->tiles[i].player);
 		    }
 
 		    for (int i = 0; i < cli_i; i++) {
-			 write(pths[i]->w_fd, (char *) us, sizeof(int64_t) + sizeof(int8_t) * 3 * us->len);
+			 write(pths[i]->w_fd, (char *) us, sizeof(int64_t) + sizeof(int8_t) * 4 * us->len);
 		    }
 		    us->len = 0;
 		    u_flag = 0;

@@ -21,7 +21,7 @@
 #define max(a,b)    ((a < b)? b:a)
 #define clamp(a, b, c) max(min(a,c),b)
 
-void draw_tile(WINDOW * win, int64_t y, int64_t x, int64_t nearby, int64_t cp1, int64_t cp2);
+void draw_tile(WINDOW * win, int64_t y, int64_t x, int64_t nearby, int64_t player);
 
 /* creates ncurses window */
 WINDOW * create_window(uint64_t h, uint64_t w, uint64_t sy, uint64_t sx)
@@ -36,38 +36,38 @@ WINDOW * create_window(uint64_t h, uint64_t w, uint64_t sy, uint64_t sx)
 }
 
 /* draws current minefield */
-void draw_minefield(WINDOW * win, int64_t ** buf, int64_t cols, int64_t rows, int64_t cp1, int64_t cp2)
+void draw_minefield(WINDOW * win, int64_t (** buf)[2], int64_t cols, int64_t rows)
 {
      for (int i = 0; i < cols; i++){
 	  for (int j = 0; j < rows; j++){
-	       draw_tile(win, j, i, buf[i][j], cp1, cp2);
+	       draw_tile(win, j, i, buf[i][j][0], buf[i][j][1]);
 	  }
      }
      return;
 }
 
-void draw_tile(WINDOW * win, int64_t y, int64_t x, int64_t nearby, int64_t cp1, int64_t cp2)
+void draw_tile(WINDOW * win, int64_t y, int64_t x, int64_t nearby, int64_t player)
 {
      if (nearby == 10) {
-	  wattron(win,COLOR_PAIR(cp1));
+	  wattron(win,COLOR_PAIR(player));
 	  mvwaddch(win,y+1,x+1,'#');
-	  wattroff(win,COLOR_PAIR(cp1));
+	  wattroff(win,COLOR_PAIR(player));
      }
 
      if (nearby == 9) {
-	  wattron(win,COLOR_PAIR(cp2));
+	  wattron(win,COLOR_PAIR(player));
 	  mvwaddch(win,y+1,x+1,'*');
-	  wattroff(win,COLOR_PAIR(cp2));
+	  wattroff(win,COLOR_PAIR(player));
      }
      else if (nearby > 0 && nearby < 9) {
-	  wattron(win,COLOR_PAIR(cp1));
+	  wattron(win,COLOR_PAIR(player));
 	  mvwaddch(win,y+1,x+1,(int8_t)('0' + nearby));
-	  wattron(win,COLOR_PAIR(cp1));
+	  wattron(win,COLOR_PAIR(player));
      }
      else if (nearby == 0){
-	  wattron(win,COLOR_PAIR(cp1));
+	  wattron(win,COLOR_PAIR(player));
 	  mvwaddch(win,y+1,x+1,' ');
-	  wattron(win,COLOR_PAIR(cp1));
+	  wattron(win,COLOR_PAIR(player));
      }
      return;
 }
@@ -172,28 +172,28 @@ int main()
      int8_t win_flag = FALSE, loose_flag = FALSE, quit_flag = FALSE;
      struct timespec init_frame_time, end_frame_time, diff_frame_time;
      struct timeval select_timeout;
-     int64_t ** mine_buffer = NULL, (*mine_buffer_aux)[3] = NULL;
+     int64_t (** mine_buffer)[2] = NULL, (*mine_buffer_aux)[3][2] = NULL;
      WINDOW * win, * win_side;
 
      cols = is.cols;
      rows = is.rows;
      mines= is.mines;
-     us_size = sizeof(int64_t) + sizeof(int8_t) * cols * rows * 3;
+     us_size = sizeof(int64_t) + cols * rows * 4;
      us = malloc(us_size);
-     mine_buffer = malloc(sizeof(int64_t *) * (cols));
-     mine_buffer_aux = malloc(sizeof(int64_t[3]) * (rows) * (cols));
+     mine_buffer = malloc(sizeof( int64_t * [2]) * (cols));
+     mine_buffer_aux = malloc(sizeof(int64_t[3][2]) * (rows) * (cols));
      utiles = (cols) * (rows) - mines;
      if (!us || !mine_buffer || !mine_buffer_aux){
 	  return -1;
      }
 
      do{
-	  mine_buffer[auxi] = malloc(sizeof(int64_t) * (rows));
+	  mine_buffer[auxi] = malloc(sizeof(int64_t[2]) * (rows));
      } while (mine_buffer[auxi] && auxi++ < (cols));
 
      for (int i = 0; i < (cols); i++) {
 	  for (int j = 0; j < (rows); j++) {
-	       mine_buffer[i][j] = -1;
+	       mine_buffer[i][j][0] = -1;
 	  }
      }
      /* ncurses init */
@@ -209,8 +209,8 @@ int main()
      start_color();
      init_pair(1, COLOR_WHITE, COLOR_BLACK);
      init_pair(2, COLOR_RED, COLOR_BLACK);
-     init_pair(3, COLOR_BLACK, COLOR_WHITE);
-     init_pair(4, COLOR_RED, COLOR_WHITE);
+     init_pair(3, COLOR_WHITE, COLOR_BLUE);
+     init_pair(4, COLOR_WHITE, COLOR_RED);
 
 
 
@@ -230,7 +230,7 @@ int main()
      refresh();
 
      win = create_window(win_h, win_w, (LINES - win_h) / 2, (COLS - win_w) / 2);
-     draw_minefield(win, mine_buffer, cols, rows, 1,2);
+     draw_minefield(win, mine_buffer, cols, rows);
      wrefresh(win);
 
      win_side = create_window(win_h, win_w / 2, (LINES - win_h) / 2, (COLS - win_w) / 2 + win_w);
@@ -248,44 +248,13 @@ int main()
 	  clock_gettime(CLOCK_REALTIME,&init_frame_time);
 	  select_timeout.tv_sec = 0;
 	  select_timeout.tv_usec = 5000L;
-	  if (mm_select(con, &select_timeout) > 0) {
-	       mm_read(con, (char *) us, us_size);
-	       count = us->len;
-	       update_marks(win_side,count);
-	       wmove(win,y,x);
-	       if (count > 0) {
-		    for(int i = 0; i < count; i++){
-			 auxx = us->tiles[i].x;
-			 auxy = us->tiles[i].y;
-			 auxn = us->tiles[i].nearby;
-
-			 if (mine_buffer[auxx][auxy] == 10) {
-			      marks--;
-			      update_marks(win_side,marks);
-			      wmove(win,y,x);
-			 }
-			 if (auxn == 9) {
-			      loose_flag = TRUE;
-			 }
-
-			 mine_buffer[auxx][auxy] = auxn;
-			 draw_tile(win, auxy,auxx,auxn, 3,4);
-		    }
-		    us->len = 0;
-		    wmove(win,y,x);
-		    utiles-=count;
-		    update_utiles(win_side, utiles);
-		    if (utiles <= 0) {
-			 win_flag = TRUE;
-		    }
-	       }
-	  }
+	  
 	  switch(c=toupper(getch())) {
 	  case 'Q':
 	       quit_flag = TRUE;
 	       break;
 	  case 'X':
-	       if (mine_buffer[x-1][y-1] == 10){
+	       if (mine_buffer[x-1][y-1][0] == 10){
 		    break;
 	       }
 	       qs.x = x-1;
@@ -293,15 +262,15 @@ int main()
 	       mm_write(con, (char *) &qs, sizeof(QueryStruct));
 	       break;
 	  case ' ':
-	       if (mine_buffer[x-1][y-1] < 0 || mine_buffer[x-1][y-1] == 10) {
-		    if (mine_buffer[x-1][y-1] < 0) {
-			 mine_buffer[x-1][y-1] = 10;
-			 draw_tile(win, y-1, x-1, 10, 3,4);
+	       if (mine_buffer[x-1][y-1][0] < 0 || mine_buffer[x-1][y-1][0] == 10) {
+		    if (mine_buffer[x-1][y-1][0] < 0) {
+			 mine_buffer[x-1][y-1][0] = 10;
+			 draw_tile(win, y-1, x-1, 10, 1);
 			 marks++;
 		    }
 		    else {
-			 mine_buffer[x-1][y-1] = -1;
-			 draw_tile(win, y-1, x-1, 0, 1,2);
+			 mine_buffer[x-1][y-1][0] = -1;
+			 draw_tile(win, y-1, x-1, 0, 1);
 			 marks--;
 		    }
 		    update_marks(win_side, marks);
@@ -332,7 +301,7 @@ int main()
 	       clear();
 	       refresh();
 	       win = create_window(win_h, win_w, (LINES - win_h) / 2 , (COLS - win_w) / 2);
-	       draw_minefield(win,mine_buffer,cols,rows, 3, 4);
+	       draw_minefield(win,mine_buffer,cols,rows);
 	       wrefresh(win);
 
 	       win_side = create_window(win_h, win_w, (LINES - win_h) / 2, (COLS - win_w) / 2 + win_w);
@@ -348,6 +317,42 @@ int main()
 	  default:
 	       break;
 	  }
+     
+	  if (mm_select(con, &select_timeout) > 0) {
+	       mm_read(con, (char *) us, us_size);
+	       count = us->len;
+	       update_marks(win_side,count);
+	       wmove(win,y,x);
+	       if (count > 0) {
+		    for(int i = 0; i < count; i++){
+			 auxx = us->tiles[i].x;
+			 auxy = us->tiles[i].y;
+			 auxn = us->tiles[i].nearby;
+
+			 if (mine_buffer[auxx][auxy][0] == 10) {
+			      marks--;
+			      update_marks(win_side,marks);
+			      wmove(win,y,x);
+			 }
+			 if (auxn == 9) {
+			      loose_flag = TRUE;
+			 }
+
+			 mine_buffer[auxx][auxy][0] = auxn;
+			 mine_buffer[auxx][auxy][1] = us->tiles[i].player;
+			 draw_tile(win, auxy,auxx,auxn, us->tiles[i].player + 3);
+		    }
+		    us->len = 0;
+		    wmove(win,y,x);
+		    utiles-=count;
+		    update_utiles(win_side, utiles);
+		    if (utiles <= 0) {
+			 win_flag = TRUE;
+		    }
+	       }
+	  }
+	  
+	  
 	  clock_gettime(CLOCK_REALTIME, &end_frame_time);
 	  time_diff(&diff_frame_time,&init_frame_time,&end_frame_time);
 	  nanosleep(&diff_frame_time,NULL);
