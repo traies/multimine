@@ -1,6 +1,11 @@
 #include "comms.h"
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/un.h>
+
 #define DATASIZE 1024
 
 struct message{
@@ -15,32 +20,35 @@ struct connection{
   struct sockaddr_un * o_a;
 } ;
 
-struct address {
-  char * path;
-} ;
-
 struct listener {
      int l_fd;
 };
 
+static Listener_p newListener(int fd);
+static Connection * newConnection(int fd,struct sockaddr_un * o);
+static int write_msg(int w_fd,const char * m,int size);
 /*
 ** This function creates a socket and binds
 ** it to the address providen. The file descriptor
 ** generated is returned in the Listener struct.
 */
+
+int l_fd=-1;
+
 Listener_p mm_listen(Address * addr){
   struct sockaddr_un sa ;
   memset(&sa,0,sizeof(sa));
-  int sfd = socket(PF_LOCAL, SOCK_STREAM, IPPROTO_TCP);
+  int sfd = socket(AF_UNIX, SOCK_STREAM, 0);
   if(sfd==-1){
     return NULL;
   }
-  sa.sun_family=AF_LOCAL;
-  memcpy(sa.sun_path,addr->path,strlen(addr->path)+1);
+  sa.sun_family=AF_UNIX;
+  strncpy(sa.sun_path, (char *)addr, strlen((char*)addr)+1);
   if(bind(sfd,(struct sockaddr *)&sa,sizeof(sa))==-1){
     close(sfd);
     return NULL;
   }
+  l_fd=sfd;
   return newListener(sfd);
 }
 
@@ -48,18 +56,18 @@ Listener_p mm_listen(Address * addr){
 ** Connects the own listening socket to the address
 ** providen.
 */
-Connection * mm_connect(Listener_p l,Address * addr){
-  if(l==NULL || addr==NULL){
+Connection * mm_connect(Address * addr){
+  if(addr==NULL){
     return NULL;
   }
   struct sockaddr_un * sa=calloc(sizeof(*sa),1);
-  sa->sun_family=AF_LOCAL;
-  memcpy(sa->sun_path,addr->path,strlen(addr->path)+1);
+  sa->sun_family=AF_UNIX;
+  strncpy(sa->sun_path, (char *)addr, strlen((char *)addr)+1);
 
-  if(connect(l->l_fd,(struct sockaddr *)sa,sizeof(*sa))==-1){
+  if(connect(l_fd,(struct sockaddr *)sa,sizeof(*sa))==-1){
     return NULL;
   }
-  return newConnection(l->l_fd,sa);
+  return newConnection(l_fd,sa);
 }
 
 void mm_disconnect(Connection * c){
@@ -73,9 +81,10 @@ void mm_disconnect(Connection * c){
 ** is returned upon connection.
 */
 Connection * mm_accept(Listener_p l){
+  listen(l->l_fd,1);
   struct sockaddr_un * sa_cli=calloc(sizeof(*sa_cli),1);
   int size_cli = sizeof(*sa_cli);
-  int n_fd=accept(l->l_fd,(struct sockaddr *)sa_cli,&size_cli);
+  int n_fd=accept(l->l_fd,(struct sockaddr *)sa_cli,(socklen_t *)&size_cli);
   if(n_fd<0){
     free(sa_cli);
     return NULL;
@@ -87,19 +96,30 @@ Connection * mm_accept(Listener_p l){
 ** The folowing functions allow read and write operations
 ** on an established connection.
 */
-char * mm_read(Connection * c, int * s){
-  void * b = calloc(sizeof(Message),1);
-  read(c->fd,b,sizeof(Message));
-  Message * msg = (Message *)b;
-  char * buf = malloc(msg->size);
-  memcpy(buf,msg->data,msg->size);
-  *s=msg->size;
-  free(b);
-  return buf;
+int mm_read(Connection * c, char buf[], int size)
+{
+    int len;
+    Message m;
+    if ((len = read(c->fd,(char *) &m,sizeof(Message))) < 0) {
+	     return -1;
+    }
+    len = min(size, m.size);
+    memcpy(buf,m.data,len);
+    return len;
 }
 
 int mm_write(Connection * c, const char * m,int size){
   write_msg(c->fd,m,size);
+  return size;
+}
+
+int mm_select(Connection * c, struct timeval * timeout){
+  fd_set r_set;
+  if (c == NULL){
+    return -1;
+  }
+  FD_SET(c->fd, &r_set);
+  return select(c->fd + 1, &r_set, NULL, NULL, timeout);
 }
 
 static Connection * newConnection(int fd,struct sockaddr_un * o){

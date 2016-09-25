@@ -1,5 +1,6 @@
 #ifndef COMMS_H
 #define COMMS_H
+#define min(a,b)  ((a) < (b))?(a):(b)
 
 #if __STDC_VERSION__ >= 199901L
 #define _XOPEN_SOURCE 600
@@ -22,7 +23,7 @@ typedef struct InitStruct
      int64_t mines;
 } InitStruct;
 
-typedef struct QueryStruct 
+typedef struct QueryStruct
 {
      int x;
      int y;
@@ -31,7 +32,7 @@ typedef struct QueryStruct
 typedef struct UpdateStruct
 {
      int64_t len;
-     struct TileUpdate 
+     struct TileUpdate
      {
 	  int8_t x;
 	  int8_t y;
@@ -41,7 +42,7 @@ typedef struct UpdateStruct
 
 typedef struct address Address ;
 typedef struct connection Connection ;
-typedef struct Listener Listener;
+typedef struct listener Listener;
 typedef Listener * Listener_p;
 
 /*

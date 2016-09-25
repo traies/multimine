@@ -15,7 +15,6 @@
 #include <string.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#define min(a,b)  ((a) < (b))?(a):(b) 
 #define TIMEOUT 5
 #define NORMAL_PCK 8
 #define DELETE_CONN_PCK 9
@@ -84,8 +83,8 @@ Connection * mm_connect(Address * addr){
     return NULL;
   }
 
-  
-  
+
+
   int size = strlen(r_addr)+strlen(w_addr)+2;
 
   char * msg = malloc(size);
@@ -100,7 +99,7 @@ Connection * mm_connect(Address * addr){
     if(read(r,(char *)buf,sizeof(Message))>0){
       Message * msg = (Message *) buf;
       if(msg->type==ACK_CONN_PCK){
-	   
+
         c = newConnection(w,r);
         free(buf);
         return c;
@@ -147,21 +146,21 @@ static int write_msg(int w_fd,const char * m,int type,int size){
 Connection * mm_accept(Listener_p l){
      int64_t len;
   void * msg = malloc(sizeof(Message));
-  
+
   if ((len = read(l->l_fd,msg,sizeof(Message))) < 0) {
     return NULL;
   }
-  
+
   Message * m = (Message *)msg;
   char * buf = malloc(m->size);
   memcpy(buf,m->data,m->size);
   int w_fd,i,r_fd;
-  
+
   if(m->type == ADD_CONN_PCK){
        w_fd= open(buf,O_WRONLY);
       r_fd= open(buf+strlen(buf)+1,O_RDONLY);
       if (w_fd < 0 || r_fd < 0) {
-	
+
 	   return NULL;
       }
       Connection * c = newConnection(w_fd, r_fd);
@@ -169,10 +168,10 @@ Connection * mm_accept(Listener_p l){
       write_msg(c->w_fd,NULL,ACK_CONN_PCK,0);
       free(msg);
       free(buf);
-      
+
       return c;
   }
-  
+
   return NULL;
 }
 
@@ -190,7 +189,7 @@ int mm_read(Connection * c, char buf[], int size)
 {
      int len;
      Message m;
-     
+
      if ((len = read(c->r_fd,(char *) &m,sizeof(Message))) < 0) {
 	  return -1;
      }
