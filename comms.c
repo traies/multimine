@@ -36,7 +36,7 @@ struct message{
 
 typedef struct message Message;
 
-typedef struct Listener {
+typedef struct listener {
      int l_fd;
 } Listener;
 
