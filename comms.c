@@ -182,7 +182,9 @@ int mm_select(Connection * c, struct timeval * timeout)
 	  return -1;
      }
      FD_SET(c->r_fd, &r_set);
-     return select(c->r_fd + 1, &r_set, NULL, NULL, timeout);
+     select(c->r_fd + 1, &r_set, NULL, NULL, timeout);
+     return FD_ISSET(c->r_fd, &r_set) ? 1: -1;
+       
 }
 
 int mm_read(Connection * c, char buf[], int size)
