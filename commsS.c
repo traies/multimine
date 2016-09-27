@@ -32,9 +32,6 @@ static int write_msg(int w_fd,const char * m,int size);
 ** it to the address providen. The file descriptor
 ** generated is returned in the Listener struct.
 */
-
-int l_fd=-1;
-
 Listener_p mm_listen(Address * addr){
   struct sockaddr_un sa ;
   memset(&sa,0,sizeof(sa));
@@ -48,7 +45,6 @@ Listener_p mm_listen(Address * addr){
     close(sfd);
     return NULL;
   }
-  l_fd=sfd;
   return newListener(sfd);
 }
 
@@ -60,18 +56,24 @@ Connection * mm_connect(Address * addr){
   if(addr==NULL){
     return NULL;
   }
+  int sfd = socket(AF_UNIX, SOCK_STREAM, 0);
+  if(sfd==-1){
+    return NULL;
+  }
   struct sockaddr_un * sa=calloc(sizeof(*sa),1);
   sa->sun_family=AF_UNIX;
   strncpy(sa->sun_path, (char *)addr, strlen((char *)addr)+1);
 
-  if(connect(l_fd,(struct sockaddr *)sa,sizeof(*sa))==-1){
+  if(connect(sfd,(struct sockaddr *)sa,sizeof(*sa))==-1){
     return NULL;
   }
-  return newConnection(l_fd,sa);
+  return newConnection(sfd,sa);
 }
 
 void mm_disconnect(Connection * c){
-
+  close(c->fd);
+  free(c->o_a);
+  free(c);
 }
 
 /*
