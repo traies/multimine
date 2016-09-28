@@ -15,7 +15,6 @@ typedef struct message Message;
 
 struct connection{
   int fd;
-  struct sockaddr_un * o_a;
 } ;
 
 struct listener {
@@ -23,7 +22,7 @@ struct listener {
 };
 
 static Listener_p newListener(int fd);
-static Connection * newConnection(int fd,struct sockaddr_un * o);
+static Connection * newConnection(int fd);
 static int write_msg(int w_fd,const char * m,int size);
 /*
 ** This function creates a socket and binds
@@ -58,19 +57,19 @@ Connection * mm_connect(char * addr){
   if(sfd==-1){
     return NULL;
   }
-  struct sockaddr_un * sa=calloc(sizeof(*sa),1);
-  sa->sun_family=AF_UNIX;
-  strncpy(sa->sun_path, addr, strlen(addr)+1);
+  struct sockaddr_un sa;
+  memset(&sa,0,sizeof(sa));
+  sa.sun_family=AF_UNIX;
+  strncpy(sa.sun_path, addr, strlen(addr)+1);
 
-  if(connect(sfd,(struct sockaddr *)sa,sizeof(*sa))==-1){
+  if(connect(sfd,(struct sockaddr *)&sa,sizeof(sa))==-1){
     return NULL;
   }
-  return newConnection(sfd,sa);
+  return newConnection(sfd);
 }
 
 void mm_disconnect(Connection * c){
   close(c->fd);
-  free(c->o_a);
   free(c);
 }
 
@@ -82,14 +81,14 @@ void mm_disconnect(Connection * c){
 */
 Connection * mm_accept(Listener_p l){
   listen(l->l_fd,1);
-  struct sockaddr_un * sa_cli=calloc(sizeof(*sa_cli),1);
-  int size_cli = sizeof(*sa_cli);
-  int n_fd=accept(l->l_fd,(struct sockaddr *)sa_cli,(socklen_t *)&size_cli);
+  struct sockaddr_un sa_cli;
+  memset(&sa_cli,0,sizeof(sa_cli));
+  int size_cli = sizeof(sa_cli);
+  int n_fd=accept(l->l_fd,(struct sockaddr *)&sa_cli,(socklen_t *)&size_cli);
   if(n_fd<0){
-    free(sa_cli);
     return NULL;
   }
-  return newConnection(n_fd,sa_cli);
+  return newConnection(n_fd);
 }
 
 /*
@@ -125,10 +124,9 @@ int mm_select(Connection * c, struct timeval * timeout){
   return select(c->fd + 1, &r_set, NULL, NULL, timeout);
 }
 
-static Connection * newConnection(int fd,struct sockaddr_un * o){
+static Connection * newConnection(int fd){
   Connection * c = malloc(sizeof(Connection));
   c->fd=fd;
-  c->o_a=o;
   return c;
 }
 
