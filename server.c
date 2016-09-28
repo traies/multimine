@@ -440,6 +440,7 @@ int64_t get_mine_buffer(Minefield_p m, int64_t ** mb)
 void srv_exit(void)
 {
      system("rm /tmp/mine_serv");
+      system("rm /tmp/mq");
      exit(0);
 }
 
@@ -581,7 +582,7 @@ int main(void)
      system("rm /tmp/mine_serv");
      /* setting fifo path */
      sprintf(fifo, "/tmp/mine_serv");
-     /*
+
      srv_addr.fifo = fifo;
      srv_addr_mq.fifo="/tmp/mq";
      lp = mm_listen(&srv_addr_mq);
@@ -593,7 +594,7 @@ int main(void)
        while(strcmp(msg,"got_connected") != 0){
        mm_read(c,msg,strlen("got_connected")+1);
      }
-*/
+ mqd_t mqd = mq_open("/mq",O_WRONLY);
 	srv_addr.fifo = fifo;
 
      /* open connection */
@@ -601,17 +602,14 @@ int main(void)
 
      /* wait for connections */
      while ( count < 2 && (c = mm_accept(lp)) != NULL) {
-	     /*
-	  mqd_t mqd = mq_open("/mq",O_WRONLY);
-      	  mq_send(mqd,"NORMAL MSG",strlen("NORMAL MSG")+1,NORMAL_PR);
-	  mq_send(mqd,"WARNING MSG",strlen("WARNING MSG")+1,WARNING_PR);
-	  mq_send(mqd,"ERROR MSG",strlen("ERROR MSG")+1,ERR_PR);
-*/
+
+
+
 	  /* established conection on c, needs to create thread */
 	  printf("conexion establecida. Creando thread.\n");
 	  add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c, sizeof(QueryStruct), sizeof(int64_t) + 4 * rows * cols);
 	  printf("thread creado..\n");
-  // 	  mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
+   	  mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
 	  count++;
 
      }
@@ -630,6 +628,7 @@ int main(void)
      }
 
      while (!q) {
+
 	  /* read() */
 	  sflag = select(attr_nfds, &r_set, NULL, NULL, &timeout);
 	  timeout.tv_sec = 10;
@@ -653,7 +652,8 @@ int main(void)
 
 			 /* update_minefield(Minefield * m, QueryStruct * qs) */
 			 //	 printf("%s\n", buf);
-			      printf("x: %d y: %d player:%d\n",(int)qs.x,(int)qs.y, (int) i);
+			      sprintf(msg,"x: %d y: %d player:%d",(int)qs.x,(int)qs.y, (int) i);
+                              	mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
 			      update_minefield(minef, qs.x, qs.y, i, us);
 			      u_flag = 1;
 			 }
@@ -667,6 +667,7 @@ int main(void)
 
 		  while(!FD_EMPTY(&w_set)) {
 	             select(info_nfds, NULL, &w_set, NULL, &timeout);
+             }
 	       */
 	       if (u_flag){
 		    /*UpdateStruct us = fetch_updates(m);*/
@@ -674,7 +675,8 @@ int main(void)
 		    printf("%d\n",us->len);
 
 		    for (int i = 0; i < us->len; i++) {
-			 printf("unveieled x:%d y:%d n:%d player:%d \n", us->tiles[i].x, us->tiles[i].y, us->tiles[i].nearby, us->tiles[i].player);
+			 sprintf(msg,"unveieled x:%d y:%d n:%d player:%d ", us->tiles[i].x, us->tiles[i].y, us->tiles[i].nearby, us->tiles[i].player);
+                          	mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
 		    }
 
 		    for (int i = 0; i < cli_i; i++) {
@@ -686,6 +688,7 @@ int main(void)
 	       }
 	  }
      }
+
 
      printf("player initialization request \n");
      srv_exit();
