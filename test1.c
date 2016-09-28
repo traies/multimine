@@ -6,7 +6,7 @@
 int main()
 {
   char * path = "/tmp/p1";
-  Listener_p l=mm_listen((Address *)path);
+  Listener_p l=mm_listen(path);
   Connection * c = mm_accept(l);
   char buf[20];
   mm_read(c,buf,20);

@@ -5,6 +5,6 @@
 #include <stdlib.h>
 int main()
 {
-  Connection * c = mm_connect((Address *)"/tmp/p1");
+  Connection * c = mm_connect("/tmp/p1");
   mm_write(c,"hola",5);
 }

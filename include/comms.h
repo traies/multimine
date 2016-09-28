@@ -12,10 +12,6 @@
 #include <stdint.h>
 #include <sys/time.h>
 
-struct address {
-  const char * fifo;
-} ;
-
 typedef struct InitStruct
 {
      int64_t rows;
@@ -41,7 +37,6 @@ typedef struct UpdateStruct
      } tiles [];
 } UpdateStruct;
 
-typedef struct address Address ;
 typedef struct connection Connection ;
 typedef struct listener Listener;
 typedef Listener * Listener_p;
@@ -51,14 +46,14 @@ typedef Listener * Listener_p;
 ** returning the read end of a named pipe/socket
 ** for use in the accept() function.
 */
-Listener_p mm_listen(Address * addr);
+Listener_p mm_listen(char * addr);
 /*
 ** Connects the caller process to the given address.
 ** The process establishing the connection sends the
 ** accepting process the new channels through which
 ** they should communicate in the future.
 */
-Connection * mm_connect(Address * addr);
+Connection * mm_connect(char * addr);
 
 /*
 ** Disconnects the caller process from a connection.

@@ -6,11 +6,9 @@
 #include <string.h>
 #include <sys/un.h>
 
-#define DATASIZE 1024
 
 struct message{
   int size;
-  char data[DATASIZE];
 } ;
 
 typedef struct message Message;
@@ -32,7 +30,7 @@ static int write_msg(int w_fd,const char * m,int size);
 ** it to the address providen. The file descriptor
 ** generated is returned in the Listener struct.
 */
-Listener_p mm_listen(Address * addr){
+Listener_p mm_listen(char * addr){
   struct sockaddr_un sa ;
   memset(&sa,0,sizeof(sa));
   int sfd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -40,7 +38,7 @@ Listener_p mm_listen(Address * addr){
     return NULL;
   }
   sa.sun_family=AF_UNIX;
-  strncpy(sa.sun_path, (char *)addr, strlen((char*)addr)+1);
+  strncpy(sa.sun_path, addr, strlen(addr)+1);
   if(bind(sfd,(struct sockaddr *)&sa,sizeof(sa))==-1){
     close(sfd);
     return NULL;
@@ -52,7 +50,7 @@ Listener_p mm_listen(Address * addr){
 ** Connects the own listening socket to the address
 ** providen.
 */
-Connection * mm_connect(Address * addr){
+Connection * mm_connect(char * addr){
   if(addr==NULL){
     return NULL;
   }
@@ -62,7 +60,7 @@ Connection * mm_connect(Address * addr){
   }
   struct sockaddr_un * sa=calloc(sizeof(*sa),1);
   sa->sun_family=AF_UNIX;
-  strncpy(sa->sun_path, (char *)addr, strlen((char *)addr)+1);
+  strncpy(sa->sun_path, addr, strlen(addr)+1);
 
   if(connect(sfd,(struct sockaddr *)sa,sizeof(*sa))==-1){
     return NULL;
@@ -105,8 +103,11 @@ int mm_read(Connection * c, char buf[], int size)
     if ((len = read(c->fd,(char *) &m,sizeof(Message))) < 0) {
 	     return -1;
     }
+    char * tmp = malloc(m.size);
+    read(c->fd,tmp,m.size);
     len = min(size, m.size);
-    memcpy(buf,m.data,len);
+    memcpy(buf,tmp,len);
+    free(tmp);
     return len;
 }
 
@@ -141,11 +142,10 @@ static int write_msg(int w_fd,const char * m,int size){
 
   Message * msg = calloc(sizeof(Message),1);
   msg->size=size;
-
-  if(size>0){
-    memcpy(msg->data,m,size);
-  }
   write(w_fd,msg,sizeof(Message));
+  if(size>0){
+    write(w_fd,m,size);
+  }
   free(msg);
   return size;
 }
