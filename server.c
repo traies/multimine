@@ -554,8 +554,8 @@ int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set, 
 int main(void)
 {
      Listener_p lp;
-     Address srv_addr;
-     Address srv_addr_mq;
+     char * srv_addr;
+     char * srv_addr_mq;
      Connection * c = NULL;
      int64_t rows = ROWS, cols = COLS, mines = MINES;
      Minefield * minef;
@@ -580,12 +580,14 @@ int main(void)
 
      signal(SIGINT,sig_handler);
      system("rm /tmp/mine_serv");
+     system("rm /tmp/mq");
+     mq_unlink("/mq");
      /* setting fifo path */
      sprintf(fifo, "/tmp/mine_serv");
 
-     srv_addr.fifo = fifo;
-     srv_addr_mq.fifo="/tmp/mq";
-     lp = mm_listen(&srv_addr_mq);
+     srv_addr = fifo;
+     srv_addr_mq ="/tmp/mq";
+     lp = mm_listen(srv_addr_mq);
      system("gnome-terminal -x ./mq.out");
 
 
@@ -595,10 +597,11 @@ int main(void)
        mm_read(c,msg,strlen("got_connected")+1);
      }
  mqd_t mqd = mq_open("/mq",O_WRONLY);
-	srv_addr.fifo = fifo;
+
+
 
      /* open connection */
-     lp = mm_listen(&srv_addr);
+     lp = mm_listen(srv_addr);
 
      /* wait for connections */
      while ( count < 2 && (c = mm_accept(lp)) != NULL) {

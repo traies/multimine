@@ -1,6 +1,6 @@
 #define NORMAL_PR 0
 #define WARNING_PR 1000
-#define ERR_PR sysconf(_SC_MQ_PRIO_MAX) - 1
+#define ERR_PR 32768
 #include <comms.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -12,20 +12,19 @@
 
 
 int main(){
-  Address addr;
-  addr.fifo="/tmp/mq";
+  char * addr;
+  addr="/tmp/mq";
 
-  Connection * c = mm_connect(&addr);
+  Connection * c = mm_connect(addr);
 if(!c){
   printf("failed\n" );
   return 0;
 }
-
+mq_unlink("/mq");
   mqd_t mqd;
     int pr;
-    mq_close(mqd);
-    mq_unlink("/mq");
     char  m[100];
+    char * type ;
     struct   mq_attr attr;
     attr.mq_flags = 0;
     attr.mq_maxmsg = 10;
@@ -40,14 +39,21 @@ if(!c){
  mm_write( c, "got_connected",strlen("got_connected")+1);
 int j = 0;
 
-   sleep(10);
+
 while(1){
         mq_receive(mqd,m,100,&pr);
-        printf("Recibi mensaje %s de prioridad %d\n",m,pr );
+        switch(pr){
+          case NORMAL_PR : type = "NORMAL";
+                          break;
+          case WARNING_PR : type = "WARNING";
+                          break;
+          case ERR_PR : type = "ERROR";
+                      break;
+        }
+        printf("%s;tipo:%s\n",m,type );
 
       }
-        mq_close(mqd);
-        mq_unlink("/mq");
+
 
 /*
 

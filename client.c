@@ -136,7 +136,7 @@ void time_diff(struct timespec * diff, struct timespec * init, struct timespec *
 
 int main()
 {
-     Address srv_addr;
+     char * srv_addr;
      int64_t rows, cols, mines, us_size;
      QueryStruct qs;
      UpdateStruct  * us;
@@ -150,14 +150,15 @@ int main()
      signal(SIGINT, sig_handler);
 
      /* setting up communications */
-     srv_addr.fifo = "/tmp/mine_serv";
-     con = mm_connect(&srv_addr);
+     srv_addr = "/tmp/mine_serv";
+     con = mm_connect(srv_addr);
      if (!con) {
 	  printf("no se pudo subscribir.\n");
 	  cli_exit();
 	  return 0;
      }
      printf("suscrito.\n");
+  
      if ( mm_read(con, (char *) &is, sizeof(InitStruct)) > 0) {
 	  printf("cols: %d rows: %d mines: %d \n", (int) is.cols, (int) is.rows, (int) is.mines);
      }
@@ -224,7 +225,7 @@ int main()
      keypad(stdscr, TRUE);
      /* disable echoing typed chars */
      noecho();
-     
+
      /* set cursor to invisible */
      //curs_set(0);
      refresh();
@@ -248,7 +249,7 @@ int main()
 	  clock_gettime(CLOCK_REALTIME,&init_frame_time);
 	  select_timeout.tv_sec = 0;
 	  select_timeout.tv_usec = 5000L;
-	  
+
 	  switch(c=toupper(getch())) {
 	  case 'Q':
 	       quit_flag = TRUE;
@@ -317,7 +318,7 @@ int main()
 	  default:
 	       break;
 	  }
-     
+
 	  if (mm_select(con, &select_timeout) > 0) {
 	       mm_read(con, (char *) us, us_size);
 	       count = us->len;
@@ -351,8 +352,8 @@ int main()
 		    }
 	       }
 	  }
-	  
-	  
+
+
 	  clock_gettime(CLOCK_REALTIME, &end_frame_time);
 	  time_diff(&diff_frame_time,&init_frame_time,&end_frame_time);
 	  nanosleep(&diff_frame_time,NULL);
