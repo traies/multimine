@@ -17,6 +17,8 @@ typedef struct InitStruct
      int64_t rows;
      int64_t cols;
      int64_t mines;
+     int64_t player_id;
+     int64_t player_count;
 } InitStruct;
 
 typedef struct QueryStruct

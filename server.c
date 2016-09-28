@@ -30,6 +30,7 @@
 #define ROWS 20
 #define MINES 100
 #define BUF_SIZE 20000
+#define DEFAULT_PLAYERS 1
 struct Sector;
 struct SectorNode;
 
@@ -551,7 +552,7 @@ int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set, 
 }
 
 
-int main(void)
+int main(int argc, char * argv[])
 {
      Listener_p lp;
      char * srv_addr;
@@ -569,6 +570,14 @@ int main(void)
      QueryStruct qs;
      UpdateStruct  * us;
      InitStruct is;
+     int players;
+     
+     if (argc > 1) {
+	  sscanf(argv[1],"%d",&players);
+     }
+     else {
+	  players = DEFAULT_PLAYERS;
+     }
      us_size = cols * rows * 4 + sizeof(int64_t);
      us = malloc(us_size);
      us->len = 0;
@@ -604,7 +613,7 @@ int main(void)
      lp = mm_listen(srv_addr);
 
      /* wait for connections */
-     while ( count < 2 && (c = mm_accept(lp)) != NULL) {
+     while ( count < players && (c = mm_accept(lp)) != NULL) {
 	  /* established conection on c, needs to create thread */
 	  printf("conexion establecida. Creando thread.\n");
 	  add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c, sizeof(QueryStruct), sizeof(int64_t) + 4 * rows * cols);
@@ -613,7 +622,7 @@ int main(void)
 	  count++;
 
      }
-     if (count < 2) {
+     if (count < players) {
 	  /* connections failed */
 	  srv_exit();
      }
@@ -622,8 +631,10 @@ int main(void)
      is.cols = cols;
      is.rows = rows;
      is.mines = mines;
+     is.player_count = cli_i;
      /* send game info to clients */
      for (int i = 0; i < cli_i; i++) {
+	  is.player_id = i;
 	  write(pths[i]->w_fd, (char *) &is, sizeof(InitStruct));
      }
 
@@ -669,9 +680,6 @@ int main(void)
              }
 	       */
 	       if (u_flag){
-		    /*UpdateStruct us = fetch_updates(m);*/
-		    printf("%d\n",us->len);
-
 		    for (int i = 0; i < us->len; i++) {
 			 sprintf(msg,"unveieled x:%d y:%d n:%d player:%d ", us->tiles[i].x, us->tiles[i].y, us->tiles[i].nearby, us->tiles[i].player);
                           	mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);

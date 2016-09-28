@@ -137,7 +137,7 @@ void time_diff(struct timespec * diff, struct timespec * init, struct timespec *
 int main()
 {
      char * srv_addr;
-     int64_t rows, cols, mines, us_size;
+     int64_t rows, cols, mines, players, player_id, us_size;
      QueryStruct qs;
      UpdateStruct  * us;
      InitStruct is;
@@ -212,8 +212,11 @@ int main()
      init_pair(2, COLOR_RED, COLOR_BLACK);
      init_pair(3, COLOR_WHITE, COLOR_BLUE);
      init_pair(4, COLOR_WHITE, COLOR_RED);
-
-
+     init_pair(5, COLOR_WHITE, COLOR_YELLOW);
+     init_pair(6, COLOR_WHITE, COLOR_GREEN);
+     init_pair(7, COLOR_WHITE, COLOR_MAGENTA);
+     init_pair(8, COLOR_WHITE, COLOR_CYAN);
+     init_pair(9, COLOR_BLACK, COLOR_WHITE);
 
      win_h = rows + 2;
      win_w = cols + 2;
@@ -230,11 +233,11 @@ int main()
      //curs_set(0);
      refresh();
 
-     win = create_window(win_h, win_w, (LINES - win_h) / 2, (COLS - win_w) / 2);
+     win = create_window(win_h, win_w, (LINES - win_h) / 2, (COLS - win_w - 24) / 2);
      draw_minefield(win, mine_buffer, cols, rows);
      wrefresh(win);
 
-     win_side = create_window(win_h, win_w / 2, (LINES - win_h) / 2, (COLS - win_w) / 2 + win_w);
+     win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
      update_mines(win_side, mines);
      update_utiles(win_side, utiles);
      update_marks(win_side, marks);
@@ -301,11 +304,11 @@ int main()
 	       endwin();
 	       clear();
 	       refresh();
-	       win = create_window(win_h, win_w, (LINES - win_h) / 2 , (COLS - win_w) / 2);
+	       win = create_window(win_h, win_w, (LINES - win_h) / 2 , (COLS - win_w - 24) / 2);
 	       draw_minefield(win,mine_buffer,cols,rows);
 	       wrefresh(win);
-
-	       win_side = create_window(win_h, win_w, (LINES - win_h) / 2, (COLS - win_w) / 2 + win_w);
+                                       
+	       win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
 	       update_mines(win_side, mines);
 	       update_utiles(win_side, utiles);
 	       update_marks(win_side, marks);
@@ -322,8 +325,6 @@ int main()
 	  if (mm_select(con, &select_timeout) > 0) {
 	       mm_read(con, (char *) us, us_size);
 	       count = us->len;
-	       update_marks(win_side,count);
-	       wmove(win,y,x);
 	       if (count > 0) {
 		    for(int i = 0; i < count; i++){
 			 auxx = us->tiles[i].x;
