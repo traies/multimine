@@ -359,6 +359,8 @@ int main()
 	  nanosleep(&diff_frame_time,NULL);
 	  wrefresh(win);
      }
+     /* enable blocking getch() */
+     timeout(-1);
      if (win_flag) {
 	  wmove(win_side, 5, 1);
 	  wprintw(win_side, "YOU WIN!");

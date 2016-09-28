@@ -350,11 +350,11 @@ int64_t uncover_sector(Minefield_p m, int64_t x, int64_t y, int64_t player, int8
      SectorNode * sn;
 
      if (!m || x < 0 || x > m->cols || y < 0 || y > m->rows){
-	  return -1;
+	  return 0;
      }
      t = m->tiles[x][y];
      if (t->ownerid >= 0) {
-	  return -1;
+	  return 0;
      }
      if (t->ismine) {
 	  retbuf[c][0] = x;
@@ -596,7 +596,7 @@ int main(void)
        while(strcmp(msg,"got_connected") != 0){
        mm_read(c,msg,strlen("got_connected")+1);
      }
- mqd_t mqd = mq_open("/mq",O_WRONLY);
+       mqd_t mqd = mq_open("/mq",O_WRONLY);
 
 
 
@@ -605,9 +605,6 @@ int main(void)
 
      /* wait for connections */
      while ( count < 2 && (c = mm_accept(lp)) != NULL) {
-
-
-
 	  /* established conection on c, needs to create thread */
 	  printf("conexion establecida. Creando thread.\n");
 	  add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c, sizeof(QueryStruct), sizeof(int64_t) + 4 * rows * cols);
@@ -652,13 +649,12 @@ int main(void)
 		    if (FD_ISSET(pths[i]->r_fd, &r_set)) {
 			 /* read fd */
 			 if (read(pths[i]->r_fd,(char *) &qs,max_size) > 0) {
-
-			 /* update_minefield(Minefield * m, QueryStruct * qs) */
-			 //	 printf("%s\n", buf);
-			      sprintf(msg,"x: %d y: %d player:%d",(int)qs.x,(int)qs.y, (int) i);
-                              	mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
-			      update_minefield(minef, qs.x, qs.y, i, us);
-			      u_flag = 1;
+			      
+			      if (update_minefield(minef, qs.x, qs.y, i, us) > 0) {
+				   u_flag = 1;
+				   sprintf(msg,"x: %d y: %d player:%d",(int)qs.x,(int)qs.y, (int) i);
+				   mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
+			      }
 			 }
 		    }
 		    else {
@@ -674,7 +670,6 @@ int main(void)
 	       */
 	       if (u_flag){
 		    /*UpdateStruct us = fetch_updates(m);*/
-	       //   int64_t u_struct_s = sizeof(m->u_struct);
 		    printf("%d\n",us->len);
 
 		    for (int i = 0; i < us->len; i++) {
