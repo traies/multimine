@@ -69,7 +69,7 @@ Connection * mm_connect(char * addr){
 }
 
 void mm_disconnect(Connection * c){
-  close(c->fd);
+  shutdown(c->fd,SHUT_RDWR);
   free(c);
 }
 
@@ -121,7 +121,8 @@ int mm_select(Connection * c, struct timeval * timeout){
     return -1;
   }
   FD_SET(c->fd, &r_set);
-  return select(c->fd + 1, &r_set, NULL, NULL, timeout);
+  select(c->fd + 1, &r_set, NULL, NULL, timeout);
+  return FD_ISSET(c->fd, &r_set) ? 1: -1;
 }
 
 static Connection * newConnection(int fd){
