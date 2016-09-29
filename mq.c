@@ -11,13 +11,13 @@
 #include <string.h>
 
 
-int main(){
+int main(int argc,char * argv[]){
   char * addr;
-  addr="/tmp/mq";
-
+  addr="localhost";
   Connection * c = mm_connect(addr);
 if(!c){
   printf("failed\n" );
+  getchar();
   return 0;
 }
 mq_unlink("/mq");

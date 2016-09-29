@@ -123,7 +123,7 @@ Minefield_p create_minefield(int64_t cols, int64_t rows, int64_t mines, int64_t 
 	  free(minefield);
 	  return NULL;
      }
-     
+
      t = minefield->tiles = malloc(sizeof(Tile **) * cols);
      while(t && c < cols) {
 	  t = minefield->tiles[c] = malloc(sizeof(Tile*) * rows);
@@ -595,7 +595,7 @@ int main(int argc, char * argv[])
      EndGameStruct * es;
      InitStruct is;
      int players;
-     
+
      if (argc > 1) {
 	  sscanf(argv[1],"%d",&players);
      }
@@ -619,33 +619,34 @@ int main(int argc, char * argv[])
 
      signal(SIGINT,sig_handler);
      system("rm /tmp/mine_serv");
-     /*
+
      system("rm /tmp/mq");
      mq_unlink("/mq");
-     */
+
      /* setting fifo path */
      sprintf(fifo, "/tmp/mine_serv");
-     
+
      srv_addr = fifo;
-     /*
+
      srv_addr_mq ="/tmp/mq";
      lp = mm_listen(srv_addr_mq);
-     system("gnome-terminal -x ./mq.out");
+     system("gnome-terminal -e bash");
 
 
-     while ( (c = mm_accept(lp)) == NULL) ;
-     */
+    c = mm_accept(lp) ;
        char msg[100]="";
-       /*
+
        while(strcmp(msg,"got_connected") != 0){
        mm_read(c,msg,strlen("got_connected")+1);
      }
+
+     mm_disconnect(c);
        mqd_t mqd = mq_open("/mq",O_WRONLY);
 
-       */
+
 
      /* open connection */
-     lp = mm_listen(srv_addr);
+   //  lp = mm_listen(srv_addr);
 
      /* wait for connections */
      while ( count < players && (c = mm_accept(lp)) != NULL) {
@@ -653,7 +654,7 @@ int main(int argc, char * argv[])
 	  printf("conexion establecida. Creando thread.\n");
 	  add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c, sizeof(QueryStruct), us_size);
 	  printf("thread creado..\n");
-	  //	  mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
+	  	  mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
 	  count++;
 
      }
@@ -695,11 +696,11 @@ int main(int argc, char * argv[])
 		    if (FD_ISSET(pths[i]->r_fd, &r_set)) {
 			 /* read fd */
 			 if (read(pths[i]->r_fd,(char *) &qs,max_size) > 0) {
-			      
+
 			      if (update_minefield(minef, qs.x, qs.y, i, us) > 0) {
 				   u_flag = 1;
 				   sprintf(msg,"x: %d y: %d player:%d",(int)qs.x,(int)qs.y, (int) i);
-				   //	   mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
+				   	   mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
 			      }
 			 }
 		    }
@@ -717,7 +718,7 @@ int main(int argc, char * argv[])
 	       if (u_flag){
 		    for (int i = 0; i < us->len; i++) {
 			 sprintf(msg,"unveiled x:%d y:%d n:%d player:%d ", us->tiles[i].x, us->tiles[i].y, us->tiles[i].nearby, us->tiles[i].player);
-			 //	mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
+			 	mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
 		    }
 
 		    for (int i = 0; i < cli_i; i++) {
@@ -729,7 +730,7 @@ int main(int argc, char * argv[])
 	       if (minef->endflag) {
 		    es->winner_id = minef->winner_id;
 		    es->players = minef->players;
-		    memcpy(es->player_scores, minef->player_scores, players * sizeof(int64_t)); 
+		    memcpy(es->player_scores, minef->player_scores, players * sizeof(int64_t));
 		    for (int i = 0; i < us->len;i++) {
 			 write(pths[i]->w_fd, (char *) es, es_size);
 		    }
@@ -740,7 +741,7 @@ int main(int argc, char * argv[])
 
      printf("game ended.\n");
      getchar();
-     
+
      srv_exit();
      //minef = create_minefield(cols, rows, mines);
 
