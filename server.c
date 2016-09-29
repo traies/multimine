@@ -67,7 +67,12 @@ typedef struct SectorNode
 
 typedef struct Minefield
 {
+     int8_t endflag;
+     int64_t winner_id;
      int64_t cols, rows;
+     int64_t players;
+     int64_t players_left;
+     int64_t * player_scores;
      Tile *** tiles;
 } Minefield;
 
@@ -81,7 +86,7 @@ void free_tile(Tile * t);
 void free_sector(Sector * s);
 Tile * uncover_tile(Minefield * minefield, uint64_t x, uint64_t y);
 
-Minefield_p create_minefield(int64_t cols, int64_t rows, int64_t mines)
+Minefield_p create_minefield(int64_t cols, int64_t rows, int64_t mines, int64_t players)
 {
      int64_t size = cols * rows;
      int64_t * rand_arr, * mine_arr;
@@ -106,6 +111,19 @@ Minefield_p create_minefield(int64_t cols, int64_t rows, int64_t mines)
      /* initialize minefield */
      minefield->cols = cols;
      minefield->rows = rows;
+     minefield->players = players;
+     minefield->players_left = players;
+     minefield->endflag = FALSE;
+     minefield->winner_id = -1;
+     minefield->player_scores = calloc(1,sizeof(int64_t) * players);
+     if (!minefield->player_scores) {
+	  free(rand_arr);
+	  free(mine_arr);
+	  free(minefield->player_scores);
+	  free(minefield);
+	  return NULL;
+     }
+     
      t = minefield->tiles = malloc(sizeof(Tile **) * cols);
      while(t && c < cols) {
 	  t = minefield->tiles[c] = malloc(sizeof(Tile*) * rows);
@@ -154,11 +172,14 @@ Minefield_p create_minefield(int64_t cols, int64_t rows, int64_t mines)
 	  y = mine_arr[k] / cols;
 	  tile = minefield->tiles[x][y];
 	  tile->ismine = TRUE;
+	  tile->nearby = 9;
 	  maxkx = min(x+1,cols-1);
 	  maxky = min(y+1,rows-1);
 	  for (int kx = max(x-1,0); kx <= maxkx;kx++){
 	       for (int ky = max(y-1, 0); ky <= maxky; ky++) {
-		    (minefield->tiles[kx][ky]->nearby)++;
+		    if (!minefield->tiles[kx][ky]->ismine){
+			 (minefield->tiles[kx][ky]->nearby)++;
+		    }
 	       }
 	  }
      }
@@ -188,7 +209,7 @@ int8_t construct_sectors(Minefield * m)
      for (int i = 0; !malloc_error && i < m->cols; i++) {
 	  for (int j = 0; j < m->rows && !malloc_error; j++) {
 	       t = m->tiles[i][j];
-	       if (t->sector || t->ismine){
+	       if (t->sector){
 		    continue;
 	       }
 	       if (t->nearby > 0){
@@ -357,19 +378,10 @@ int64_t uncover_sector(Minefield_p m, int64_t x, int64_t y, int64_t player, int8
      if (t->ownerid >= 0) {
 	  return 0;
      }
-     if (t->ismine) {
-	  retbuf[c][0] = x;
-	  retbuf[c][1] = y;
-	  retbuf[c][2] = 9;
-	  retbuf[c][3] = player;
-	  c++;
-	  return c;
-     }
      s = t->sector;
      if (!s) {
 	  return 0;
      }
-
      sn = s->node;
      for (int i=0; i < s->size; i++){
 	  t = sn->tile;
@@ -390,11 +402,18 @@ int64_t update_minefield(Minefield * m, int64_t x, int64_t y, int64_t player, Up
 {
      int64_t count = 0, base_index;
      int8_t buf[BUF_SIZE][4];
-     if (m == NULL || us == NULL || x < 0 || y < 0 || x >= m->cols || y >= m->rows) {
+     if (m == NULL || us == NULL || m->player_scores[player] < 0 || x < 0 || y < 0 || x >= m->cols || y >= m->rows) {
 	  return -1;
      }
      base_index = us->len;
      count = uncover_sector(m, x, y, player,buf);
+     if (count == 1 && buf[0][2] == 9) {
+	  m->player_scores[player] = -1;
+	  m->players_left--;
+     }
+     else {
+	  m->player_scores[player] += count;
+     }
      for (int i=0; i < count; i++) {
 	  us->tiles[base_index+i].x = buf[i][0];
 	  us->tiles[base_index+i].y = buf[i][1];
@@ -405,6 +424,7 @@ int64_t update_minefield(Minefield * m, int64_t x, int64_t y, int64_t player, Up
      return count;
 }
 
+/*
 Tile * uncover_tile(Minefield * m, uint64_t x, uint64_t y)
 {
      Tile * t;
@@ -420,7 +440,9 @@ Tile * uncover_tile(Minefield * m, uint64_t x, uint64_t y)
      }
      return t;
 }
+*/
 
+/*
 int64_t get_mine_buffer(Minefield_p m, int64_t ** mb)
 {
      int k = 0;
@@ -437,6 +459,7 @@ int64_t get_mine_buffer(Minefield_p m, int64_t ** mb)
      }
      return k;
 }
+*/
 
 void srv_exit(void)
 {
@@ -562,13 +585,14 @@ int main(int argc, char * argv[])
      Minefield * minef;
      char fifo[20];
      int sflag, q = 0, attr_nfds = 0, info_nfds = 0, max_size = 1000;
-     int64_t cli_i = 0, us_size;
+     int64_t cli_i = 0, us_size, es_size;
      fd_set r_set, w_set;
      struct timeval timeout;
      ClientPthreads * pths[10];
      int count = 0;
      QueryStruct qs;
      UpdateStruct  * us;
+     EndGameStruct * es;
      InitStruct is;
      int players;
      
@@ -580,6 +604,12 @@ int main(int argc, char * argv[])
      }
      us_size = cols * rows * 4 + sizeof(int64_t);
      us = malloc(us_size);
+     es_size = players * sizeof(int64_t) + sizeof(int64_t) * 2;
+     es = malloc(es_size);
+     if (!es || !us) {
+	  printf("memory error.\n");
+	  return -1;
+     }
      us->len = 0;
 
      int8_t u_flag = 0;
@@ -616,7 +646,7 @@ int main(int argc, char * argv[])
      while ( count < players && (c = mm_accept(lp)) != NULL) {
 	  /* established conection on c, needs to create thread */
 	  printf("conexion establecida. Creando thread.\n");
-	  add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c, sizeof(QueryStruct), sizeof(int64_t) + 4 * rows * cols);
+	  add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c, sizeof(QueryStruct), us_size);
 	  printf("thread creado..\n");
    	  mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
 	  count++;
@@ -627,11 +657,11 @@ int main(int argc, char * argv[])
 	  srv_exit();
      }
      /* create minefield */
-     minef = create_minefield(cols, rows, mines);
+     minef = create_minefield(cols, rows, mines, players);
      is.cols = cols;
      is.rows = rows;
      is.mines = mines;
-     is.player_count = cli_i;
+     is.players = cli_i;
      /* send game info to clients */
      for (int i = 0; i < cli_i; i++) {
 	  is.player_id = i;
@@ -681,7 +711,7 @@ int main(int argc, char * argv[])
 	       */
 	       if (u_flag){
 		    for (int i = 0; i < us->len; i++) {
-			 sprintf(msg,"unveieled x:%d y:%d n:%d player:%d ", us->tiles[i].x, us->tiles[i].y, us->tiles[i].nearby, us->tiles[i].player);
+			 sprintf(msg,"unveiled x:%d y:%d n:%d player:%d ", us->tiles[i].x, us->tiles[i].y, us->tiles[i].nearby, us->tiles[i].player);
                           	mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
 		    }
 
@@ -690,13 +720,22 @@ int main(int argc, char * argv[])
 		    }
 		    us->len = 0;
 		    u_flag = 0;
-
+	       }
+	       if (minef->endflag) {
+		    es->winner_id = minef->winner_id;
+		    es->players = minef->players;
+		    memcpy(es->player_scores, minef->player_scores, players * sizeof(int64_t)); 
+		    for (int i = 0; i < us->len;i++) {
+			 write(pths[i]->w_fd, (char *) es, es_size);
+		    }
+		    q = TRUE;
 	       }
 	  }
      }
 
-
-     printf("player initialization request \n");
+     printf("game ended.\n");
+     getchar();
+     
      srv_exit();
      //minef = create_minefield(cols, rows, mines);
 
