@@ -619,25 +619,30 @@ int main(int argc, char * argv[])
 
      signal(SIGINT,sig_handler);
      system("rm /tmp/mine_serv");
+     /*
      system("rm /tmp/mq");
      mq_unlink("/mq");
+     */
      /* setting fifo path */
      sprintf(fifo, "/tmp/mine_serv");
-
+     
      srv_addr = fifo;
+     /*
      srv_addr_mq ="/tmp/mq";
      lp = mm_listen(srv_addr_mq);
      system("gnome-terminal -x ./mq.out");
 
 
      while ( (c = mm_accept(lp)) == NULL) ;
+     */
        char msg[100]="";
+       /*
        while(strcmp(msg,"got_connected") != 0){
        mm_read(c,msg,strlen("got_connected")+1);
      }
        mqd_t mqd = mq_open("/mq",O_WRONLY);
 
-
+       */
 
      /* open connection */
      lp = mm_listen(srv_addr);
@@ -648,7 +653,7 @@ int main(int argc, char * argv[])
 	  printf("conexion establecida. Creando thread.\n");
 	  add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c, sizeof(QueryStruct), us_size);
 	  printf("thread creado..\n");
-   	  mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
+	  //	  mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
 	  count++;
 
      }
@@ -694,7 +699,7 @@ int main(int argc, char * argv[])
 			      if (update_minefield(minef, qs.x, qs.y, i, us) > 0) {
 				   u_flag = 1;
 				   sprintf(msg,"x: %d y: %d player:%d",(int)qs.x,(int)qs.y, (int) i);
-				   mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
+				   //	   mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
 			      }
 			 }
 		    }
@@ -712,7 +717,7 @@ int main(int argc, char * argv[])
 	       if (u_flag){
 		    for (int i = 0; i < us->len; i++) {
 			 sprintf(msg,"unveiled x:%d y:%d n:%d player:%d ", us->tiles[i].x, us->tiles[i].y, us->tiles[i].nearby, us->tiles[i].player);
-                          	mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
+			 //	mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
 		    }
 
 		    for (int i = 0; i < cli_i; i++) {

@@ -11,7 +11,7 @@
 #include <stdint.h>
 #include <ctype.h>
 #include <time.h>
-#include <queue.h>
+#include <queue.h>10.1.34.141
 #include <signal.h>
 #include <marsh.h>
 #include <comms.h>
@@ -40,7 +40,7 @@ void draw_minefield(WINDOW * win, int64_t (** buf)[2], int64_t cols, int64_t row
 {
      for (int i = 0; i < cols; i++){
 	  for (int j = 0; j < rows; j++){
-	       draw_tile(win, j, i, buf[i][j][0], buf[i][j][1]);
+	       draw_tile(win, j, i, buf[i][j][0], buf[i][j][1] + 3);
 	  }
      }
      return;
@@ -206,7 +206,7 @@ int8_t check_win_state(int64_t * pids, int64_t (* pscores)[2], int64_t players, 
      return FALSE;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
      char * srv_addr;
      int64_t rows, cols, mines, players, player_id, us_size;
@@ -217,15 +217,23 @@ int main()
      InitStruct is;
      Connection * con;
 
+     if (argc <=1) {
+       printf("no anduvo.\n");
+       return 0;
+     }
+     else {
+       /* setting up communications */
+       printf("%s\n", argv[1]);
+       srv_addr = argv[1];
+     }
+     
      /* setting fifo path */
      sprintf(fin, "/tmp/r%d", getpid());
      sprintf(fout, "/tmp/w%d", getpid());
 
      signal(SIGINT, sig_handler);
-
-     /* setting up communications */
-     srv_addr = "/tmp/mine_serv";
      con = mm_connect(srv_addr);
+     
      if (!con) {
 	  printf("no se pudo subscribir.\n");
 	  cli_exit();
