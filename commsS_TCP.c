@@ -74,7 +74,7 @@ Connection * mm_connect(char * addr){
 
 
 void mm_disconnect(Connection * c){
-  close(c->fd);
+  shutdown(c->fd,SHUT_RDWR);
   free(c);
 }
 
