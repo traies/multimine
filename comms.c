@@ -236,3 +236,7 @@ static Connection * newConnection(int w,int r){
   ans->r_fd=r;
   return ans;
 }
+
+int mm_commtype(){
+  return COMM_SOCK_FIFO;
+}

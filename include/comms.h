@@ -1,6 +1,9 @@
 #ifndef COMMS_H
 #define COMMS_H
 #define min(a,b)  ((a) < (b))?(a):(b)
+#define COMM_FIFO 6
+#define COMM_SOCK_UNIX 66
+#define COMM_SOCK_INET 666
 
 #if __STDC_VERSION__ >= 199901L
 #define _XOPEN_SOURCE 600
@@ -99,5 +102,11 @@ int mm_read(Connection * c, char buf[], int size);
 ** Writes size bytes of m to the given connection.
 */
 int mm_write(Connection * c, const char * m,int size);
+
+/*
+** Returns the version of this header's implementation
+** currently in use.
+*/
+int mm_commtype();
 
 #endif

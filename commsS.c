@@ -147,3 +147,7 @@ static int write_msg(int w_fd,const char * m,int size){
   free(msg);
   return size;
 }
+
+int mm_commtype(){
+  return COMM_SOCK_UNIX;
+}
