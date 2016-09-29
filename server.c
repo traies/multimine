@@ -618,15 +618,15 @@ int main(int argc, char * argv[])
      timeout.tv_usec = 0;
 
      signal(SIGINT,sig_handler);
-     system("rm /tmp/mine_serv");
+     //system("rm /tmp/mine_serv");
      /*
      system("rm /tmp/mq");
      mq_unlink("/mq");
      */
      /* setting fifo path */
-     sprintf(fifo, "/tmp/mine_serv");
+     //sprintf(fifo, "/tmp/mine_serv");
      
-     srv_addr = fifo;
+     //srv_addr = fifo;
      /*
      srv_addr_mq ="/tmp/mq";
      lp = mm_listen(srv_addr_mq);
