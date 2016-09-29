@@ -7,8 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#define PORT 1100
+#include <netdb.h>
+#define PORT 25481
 
 struct message{
   int size;
@@ -29,31 +29,21 @@ static Connection * newConnection(int fd);
 static int write_msg(int w_fd,const char * m,int size);
 
 Listener_p mm_listen(char * addr){
-  struct sockaddr_in sa ;
-  memset(&sa,0,sizeof(sa));
-  int sfd = socket(AF_INET, SOCK_STREAM, 0);
-  if(sfd==-1){
+  struct addrinfo hints, *res;
+  int sfd;
+
+  memset(&hints, 0, sizeof(hints));
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_flags = AI_PASSIVE;
+
+  getaddrinfo(NULL, "25481", &hints, &res);
+
+  if((sfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol))==-1){
     return NULL;
   }
 
-  int enable = 1;
-  setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
-
-  sa.sin_family=AF_INET;
-  sa.sin_port=htons(PORT);
-  sa.sin_addr.s_addr= htonl(INADDR_ANY);
-
-  /*
-  ** print Address
-  */
-  printf("%d.%d.%d.%d\n",
-  (int)(sa.sin_addr.s_addr&0xFF),
-  (int)((sa.sin_addr.s_addr&0xFF00)>>8),
-  (int)((sa.sin_addr.s_addr&0xFF0000)>>16),
-  (int)((sa.sin_addr.s_addr&0xFF000000)>>24));
-
-  if(bind(sfd,(struct sockaddr *)&sa,sizeof(sa))==-1){
-    close(sfd);
+  if(bind(sfd, res->ai_addr, res->ai_addrlen)==-1){
     return NULL;
   }
   return newListener(sfd);
@@ -100,8 +90,11 @@ int mm_select(Connection * c, struct timeval * timeout){
 
 
 Connection * mm_accept(Listener_p l){
-  int n_fd;
-  n_fd=accept(l->l_fd,NULL,NULL);
+  listen(l->l_fd,1);
+  struct sockaddr_in sa_cli;
+  memset(&sa_cli,0,sizeof(sa_cli));
+  int size_cli = sizeof(sa_cli);
+  int n_fd=accept(l->l_fd,(struct sockaddr *)&sa_cli,(socklen_t *)&size_cli);
   if(n_fd<0){
     return NULL;
   }
