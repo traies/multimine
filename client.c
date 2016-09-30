@@ -4,6 +4,11 @@
 #define _XOPEN_SOURCE 500
 #endif /* __STDC_VERSION__ */
 
+#ifdef __MACH__
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
+
 #include <ncurses.h>
 #include <string.h>
 #include <stdio.h>
@@ -11,7 +16,7 @@
 #include <stdint.h>
 #include <ctype.h>
 #include <time.h>
-#include <queue.h>10.1.34.141
+#include <queue.h>
 #include <signal.h>
 #include <marsh.h>
 #include <comms.h>
@@ -21,6 +26,7 @@
 #define max(a,b)    ((a < b)? b:a)
 #define clamp(a, b, c) max(min(a,c),b)
 
+static void current_utc_time(struct timespec *ts);
 void draw_tile(WINDOW * win, int64_t y, int64_t x, int64_t nearby, int64_t player);
 
 /* creates ncurses window */
@@ -114,19 +120,19 @@ void update_scores(WINDOW * win, int64_t players,int64_t (*player_scores)[2], in
 	  wprintw(win, "            ");
 	  wmove(win, base , 1);
 	  wprintw(win, "player %d: %d / %d", (int)player_scores[0][0], (int) player_scores[0][1],(int) player_scores[1][1] + utiles);
-	  
+
 	  for (int i = 0; i < players; i++) {
 	       wmove(win, base + i, 1);
 	       wprintw(win, "            ");
 	       wmove(win, base + i, 1);
-	       
+
 	       if (player_scores[i][1] >= 0) {
 		    wprintw(win, "player %d: %d", player_scores[i][0], player_scores[i][1]);
 	       }
 	       else {
 		    wprintw(win, "player %d: LOST", player_scores[i][0]);
 	       }
-	       
+
 	  }
      }
      wrefresh(win);
@@ -173,7 +179,7 @@ void update_scores_to_ids(int64_t *player_ids, int64_t (*player_scores)[2],  int
      }
 }
 
-void sort_scores(int64_t (* player_scores)[2], int64_t players) 
+void sort_scores(int64_t (* player_scores)[2], int64_t players)
 {
      int64_t aux0, aux1;
      int j;
@@ -226,21 +232,21 @@ int main(int argc, char *argv[])
        printf("%s\n", argv[1]);
        srv_addr = argv[1];
      }
-     
+
      /* setting fifo path */
      sprintf(fin, "/tmp/r%d", getpid());
      sprintf(fout, "/tmp/w%d", getpid());
 
      signal(SIGINT, sig_handler);
      con = mm_connect(srv_addr);
-     
+
      if (!con) {
 	  printf("no se pudo subscribir.\n");
 	  cli_exit();
 	  return 0;
      }
      printf("suscrito.\n");
-  
+
      if ( mm_read(con, (char *) &is, sizeof(InitStruct)) > 0) {
 	  printf("cols: %d rows: %d mines: %d \n", (int) is.cols, (int) is.rows, (int) is.mines);
      }
@@ -263,7 +269,7 @@ int main(int argc, char *argv[])
      mines= is.mines;
      players = is.players;
      player_id = is.player_id;
-     
+
      us_size = sizeof(int64_t) + cols * rows * 4;
      us = malloc(us_size);
      mine_buffer = malloc(sizeof( int64_t * [2]) * (cols));
@@ -288,7 +294,7 @@ int main(int argc, char *argv[])
 	  player_scores[i][1] = 0;
 	  player_ids[i] = i;
      }
-     
+
      /* ncurses init */
      initscr();
 
@@ -330,7 +336,7 @@ int main(int argc, char *argv[])
      wrefresh(win);
 
      win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
-     
+
      update_scores(win_side, players, player_scores, utiles);
      update_mines(win_side, mines);
      update_utiles(win_side, utiles);
@@ -343,7 +349,8 @@ int main(int argc, char *argv[])
 
      //wattrset(win, COLOR_PAIR(2));
      while(!win_flag && !quit_flag) {
-	  clock_gettime(CLOCK_REALTIME,&init_frame_time);
+    current_utc_time(&init_frame_time);
+	  //clock_gettime(CLOCK_REALTIME,&init_frame_time);
 	  select_timeout.tv_sec = 0;
 	  select_timeout.tv_usec = 5000L;
 
@@ -401,7 +408,7 @@ int main(int argc, char *argv[])
 	       win = create_window(win_h, win_w, (LINES - win_h) / 2 , (COLS - win_w - 24) / 2);
 	       draw_minefield(win,mine_buffer,cols,rows);
 	       wrefresh(win);
-                                       
+
 	       win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
 	       update_mines(win_side, mines);
 	       update_utiles(win_side, utiles);
@@ -425,7 +432,7 @@ int main(int argc, char *argv[])
 			 auxy = us->tiles[i].y;
 			 auxn = us->tiles[i].nearby;
 			 auxp = us->tiles[i].player;
-			 
+
 			 if (mine_buffer[auxx][auxy][0] == 10) {
 			      marks--;
 			      update_marks(win_side,marks);
@@ -445,7 +452,7 @@ int main(int argc, char *argv[])
 			 mine_buffer[auxx][auxy][1] = us->tiles[i].player;
 			 draw_tile(win, auxy,auxx,auxn, us->tiles[i].player + 3);
 		    }
-		    
+
 		    us->len = 0;
 		    wmove(win,y,x);
 		    utiles-=count;
@@ -456,7 +463,8 @@ int main(int argc, char *argv[])
 		    win_flag = check_win_state(player_ids, player_scores, players, utiles);
 	       }
 	  }
-	  clock_gettime(CLOCK_REALTIME, &end_frame_time);
+    current_utc_time(&end_frame_time);
+	  //clock_gettime(CLOCK_REALTIME, &end_frame_time);
 	  time_diff(&diff_frame_time,&init_frame_time,&end_frame_time);
 	  nanosleep(&diff_frame_time,NULL);
 	  wrefresh(win);
@@ -478,4 +486,24 @@ int main(int argc, char *argv[])
 
      cli_exit();
      return 0;
+}
+
+
+/*
+** Enables MacOS compatibility for
+** clock_gettime. Obtained at
+** https://gist.github.com/jbenet/1087739
+*/
+static void current_utc_time(struct timespec *ts) {
+  #ifdef __MACH__ 
+    clock_serv_t cclock;
+    mach_timespec_t mts;
+    host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
+    clock_get_time(cclock, &mts);
+    mach_port_deallocate(mach_task_self(), cclock);
+    ts->tv_sec = mts.tv_sec;
+    ts->tv_nsec = mts.tv_nsec;
+  #else
+    clock_gettime(CLOCK_REALTIME, ts);
+  #endif
 }

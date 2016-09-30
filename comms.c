@@ -42,6 +42,7 @@ typedef struct message Message;
 
 typedef struct listener {
      int l_fd;
+     char * addr;
 } Listener;
 
 struct connection {
@@ -52,26 +53,23 @@ struct connection {
 static int write_msg(int w_fd,const char * m,int type,int size);
 static int write_conn_msg(int w_fd,const char * m,int size);
 static Connection * newConnection(int w,int r);
+static Listener * newListener(int fd,char * p);
 
 
 Listener_p mm_listen(char * addr){
-    Listener_p l = malloc(sizeof(*l));
-    if(addr==NULL || l==NULL){
-      free(l);
+    int l_fd;
+    if(addr==NULL){
       return NULL;
     }
     if(mkfifo(addr, S_IWUSR | S_IRUSR)!=0){
-      free(l);
-      puts("hola");
       return NULL;
     }
-    l->l_fd=open(addr,O_RDWR);
-    if (l->l_fd < 0) {
-  	  free(l);
-  	  /*rm ${addr->path} */
-  	  l = NULL;
+    l_fd=open(addr,O_RDWR);
+    if (l_fd < 0) {
+      remove(addr);
+  	  return NULL;
     }
-    return l;
+    return newListener(l_fd,addr);
 }
 
 /* */
@@ -131,6 +129,12 @@ void mm_disconnect(Connection * c){
   close(c->w_fd);
   close(c->r_fd);
   free(c);
+}
+
+void mm_disconnect_listener(Listener * l) {
+     close(l->l_fd);
+     remove(l->addr);
+     free(l);
 }
 
 int mm_write(Connection * c,const char * m,int size){
@@ -234,6 +238,13 @@ static Connection * newConnection(int w,int r){
   }
   ans->w_fd=w;
   ans->r_fd=r;
+  return ans;
+}
+
+static Listener * newListener(int fd,char * p){
+  Listener * ans = malloc(sizeof(Listener));
+  ans->l_fd=fd;
+  ans->addr=p;
   return ans;
 }
 

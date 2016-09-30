@@ -73,6 +73,11 @@ void mm_disconnect(Connection * c){
   free(c);
 }
 
+void mm_disconnect_listener(Listener * l) {
+     shutdown(l->l_fd, SHUT_RDWR);
+     free(l);
+}
+
 /*
 ** Accepts incoming communications on the listening socket.
 ** This should block the caller until other process attempts
