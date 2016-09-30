@@ -30,19 +30,21 @@ static int write_msg(int w_fd,const char * m,int size);
 
 Listener_p mm_listen(char * addr){
   struct addrinfo hints, *res;
-  int sfd;
-
+  int sfd, true = 1;
+  
   memset(&hints, 0, sizeof(hints));
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = AI_PASSIVE;
 
-  getaddrinfo(NULL, "25481", &hints, &res);
+  getaddrinfo(NULL, addr, &hints, &res);
 
   if((sfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol))==-1){
     return NULL;
   }
-
+  if ( setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &true, sizeof(int)) < 0) {
+       return NULL;
+  }
   if(bind(sfd, res->ai_addr, res->ai_addrlen)==-1){
     return NULL;
   }
@@ -78,6 +80,10 @@ void mm_disconnect(Connection * c){
   free(c);
 }
 
+void mm_disconnect_listener(Listener * l) {
+     shutdown(l->l_fd, SHUT_RDWR);
+     free(l);
+}
 
 int mm_select(Connection * c, struct timeval * timeout){
   fd_set r_set;
@@ -104,14 +110,14 @@ Connection * mm_accept(Listener_p l){
 
 
 int mm_read(Connection * c, char buf[], int size){
-  int len;
+     int len, r_len;
   Message m;
   if ((len = read(c->fd,(char *) &m,sizeof(Message))) < 0) {
      return -1;
   }
   char * tmp = malloc(m.size);
-  read(c->fd,tmp,m.size);
-  len = min(size, m.size);
+  r_len = read(c->fd,tmp,m.size);
+  len = min(size, r_len);
   memcpy(buf,tmp,len);
   free(tmp);
   return len;

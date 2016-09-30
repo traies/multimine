@@ -85,6 +85,8 @@ Connection * mm_connect(char * addr);
 */
 void mm_disconnect(Connection * c);
 
+void mm_disconnect_listener(Listener * lp);
+
 int mm_select(Connection * c, struct timeval * timeout);
 /*
 ** Waits for connections at the given listening port.

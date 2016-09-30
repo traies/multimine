@@ -31,6 +31,16 @@
 #define MINES 100
 #define BUF_SIZE 20000
 #define DEFAULT_PLAYERS 1
+
+typedef struct ClientPthreads
+{
+     pthread_t p_attr;
+     pthread_t p_info;
+     int8_t info_killflag, attr_killflag;
+     int r_fd;
+     int w_fd;
+} ClientPthreads;
+
 struct Sector;
 struct SectorNode;
 
@@ -425,6 +435,12 @@ int64_t update_minefield(Minefield * m, int64_t x, int64_t y, int64_t player, Up
 }
 
 /*
+int64_t reset_score(Minefield * m, int64_t playerid) 
+{
+     m->player_scores[player_ids[playerid]][0] = -1;
+}
+*/
+/*
 Tile * uncover_tile(Minefield * m, uint64_t x, uint64_t y)
 {
      Tile * t;
@@ -461,10 +477,20 @@ int64_t get_mine_buffer(Minefield_p m, int64_t ** mb)
 }
 */
 
-void srv_exit(void)
+void srv_exit(ClientPthreads * pths[], int cli_i)
 {
      system("rm /tmp/mine_serv");
       system("rm /tmp/mq");
+      if (pths == NULL || cli_i == 0) {
+	   return;
+      }
+      for (int i = 0; i < cli_i; i++) {
+	   /* killing threads */
+	   pths[i]->attr_killflag = TRUE;
+	   pthread_join(pths[i]->p_attr, NULL);
+	   pths[i]->info_killflag = TRUE;
+	   pthread_join(pths[i]->p_info, NULL);
+      }
      exit(0);
 }
 
@@ -472,7 +498,7 @@ void srv_exit(void)
 void sig_handler(int signo)
 {
      if (signo == SIGINT){
-	  srv_exit();
+	  srv_exit(NULL, 0);
      }
      return;
 }
@@ -481,6 +507,7 @@ typedef struct attender
 {
      Connection * con;
      int w_fd, buf_size;
+     int8_t * killflag;
 } Attender;
 
 /* attendants threads run here */
@@ -489,14 +516,28 @@ void * attend(void * a)
      Attender * attr = (Attender *) a ;
      Connection * con = attr->con;
      int buf_size = attr->buf_size, w_fd = attr->w_fd, len;
-     int8_t * buf = malloc(buf_size);
-
+     int8_t * buf = malloc(buf_size), * killflag = attr->killflag;
+     int sel;
+     struct timeval timeout;
+     timeout.tv_sec = 1;
+     timeout.tv_usec = 0;
+     
      free(a);
      /* expects blocking read */
-     while ((len = mm_read(con, buf, buf_size)) > 0) {
-	  write(w_fd, buf, len);
+     while (!*killflag) {
+	  if ( mm_select(con, &timeout) < 0) {
+	       continue;
+	  }
+	  else if ((len = mm_read(con, buf, buf_size)) > 0) {
+	       printf("len %d\n", len);
+	       write(w_fd, buf, len);
+	  }
+	  else if (len == 0) {
+	       printf("len: 0\n");
+	       break;
+	  }
      }
-     free(con);
+     *killflag = TRUE;
      free(buf);
      pthread_exit(0);
 }
@@ -505,6 +546,7 @@ typedef struct Informer
 {
      Connection * con;
      int r_fd, buf_size;
+     int8_t * killflag;
 } Informer;
 
 /* informer threads run here */
@@ -514,22 +556,33 @@ void * inform(void * a)
      Connection * con = info->con;
      int r_fd = info->r_fd;
      int8_t buf[BUF_SIZE];
+     int8_t * killflag = info->killflag;
      int64_t len, buf_size = BUF_SIZE;
+     fd_set fds;
+     
+     struct timeval timeout;
+     timeout.tv_sec = 1;
+     timeout.tv_usec = 0;
 
      /* expects blocking read */
-     while((len = read(r_fd, buf, buf_size)) > 0) {
-	  mm_write(con, buf, len);
+     while(!(*killflag)) {
+	  select(r_fd + 1, &fds, NULL, NULL, &timeout);
+	  timeout.tv_sec = 1;
+	  timeout.tv_usec = 0;
+	  if (FD_ISSET(r_fd, &fds) && (len = read(r_fd, buf, buf_size)) > 0) {
+	       mm_write(con, buf, len);
+	  }
+	  else {
+	       FD_SET(r_fd, &fds);
+	  }
      }
+     printf("algo inform\n");
+     
+     mm_disconnect(con);
      pthread_exit(0);
 }
 
-typedef struct ClientPthreads
-{
-     pthread_t p_attr;
-     pthread_t p_info;
-     int r_fd;
-     int w_fd;
-} ClientPthreads;
+
 
 int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set, int64_t * cli_i, int * attr_nfds, int * info_nfds, Connection * con, int attr_buf_size, int info_buf_size)
 {
@@ -547,6 +600,8 @@ int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set, 
 	  free(cli_p);
 	  return -1;
      }
+     cli_p->attr_killflag = FALSE;
+     cli_p->info_killflag = FALSE;
      attender->con = con;
      informer->con = con;
      pipe(attr_fd);
@@ -555,6 +610,8 @@ int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set, 
      informer->r_fd = info_fd[0];
      attender->buf_size = attr_buf_size;
      informer->buf_size = info_buf_size;
+     attender->killflag = &(cli_p->attr_killflag);
+     informer->killflag = &(cli_p->info_killflag);
      pthread_create(&pt_attr, NULL, attend, attender);
      pthread_create(&pt_info, NULL, inform, informer);
      cli_p->p_attr = pt_attr;
@@ -574,10 +631,8 @@ int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set, 
      return 0;
 }
 
-
 int main(int argc, char * argv[])
 {
-     Listener_p lp;
      char * srv_addr;
      char * srv_addr_mq;
      Connection * c = NULL;
@@ -585,17 +640,20 @@ int main(int argc, char * argv[])
      Minefield * minef;
      char fifo[20];
      int sflag, q = 0, attr_nfds = 0, info_nfds = 0, max_size = 1000;
-     int64_t cli_i = 0, us_size, es_size;
+     int64_t  us_size, es_size;
      fd_set r_set, w_set;
      struct timeval timeout;
-     ClientPthreads * pths[10];
      int count = 0;
      QueryStruct qs;
      UpdateStruct  * us;
      EndGameStruct * es;
      InitStruct is;
      int players;
-
+     ClientPthreads * pths[10];
+     int64_t cli_i = 0;
+     Listener * lp = NULL;
+     
+     
      if (argc > 1) {
 	  sscanf(argv[1],"%d",&players);
      }
@@ -628,7 +686,8 @@ int main(int argc, char * argv[])
      sprintf(fifo, "/tmp/mine_serv");
 
      srv_addr = fifo;
-     
+
+     /*
      srv_addr_mq ="/tmp/mq";
      lp = mm_listen(srv_addr_mq);
      system("gnome-terminal -e bash");
@@ -644,24 +703,34 @@ int main(int argc, char * argv[])
      mm_disconnect(c);
        mqd_t mqd = mq_open("/mq",O_WRONLY);
 
+       printf("algo.\n");
+       
+       mm_disconnect_listener(lp);
 
-
+       printf("algo2.\n");
+     */
      /* open connection */
-   //  lp = mm_listen(srv_addr);
-
+      lp = mm_listen("25481");
+      if (lp == NULL) {
+	   printf("fracaso\n");
+	   return 0;
+      }
+      
      /* wait for connections */
      while ( count < players && (c = mm_accept(lp)) != NULL) {
 	  /* established conection on c, needs to create thread */
 	  printf("conexion establecida. Creando thread.\n");
 	  add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c, sizeof(QueryStruct), us_size);
 	  printf("thread creado..\n");
-	  	  mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
+	  //mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
 	  count++;
-
      }
+     mm_disconnect_listener(lp);
+     lp = NULL;
+     
      if (count < players) {
 	  /* connections failed */
-	  srv_exit();
+	  srv_exit(NULL, 0);
      }
      /* create minefield */
      minef = create_minefield(cols, rows, mines, players);
@@ -673,6 +742,8 @@ int main(int argc, char * argv[])
      for (int i = 0; i < cli_i; i++) {
 	  is.player_id = i;
 	  write(pths[i]->w_fd, (char *) &is, sizeof(InitStruct));
+	  printf("b\n");
+	  
      }
 
      while (!q) {
@@ -690,18 +761,30 @@ int main(int argc, char * argv[])
 
 	  if (sflag < 0) {
 	       /* timeout expired*/
-	       srv_exit();
+	       srv_exit(pths,cli_i);
 	  }
 	  else if (sflag > 0){
 	       for(int i = 0; i < cli_i; i++) {
-		    if (FD_ISSET(pths[i]->r_fd, &r_set)) {
+		    if (pths[i] == NULL) {
+			 continue;
+		    }
+		    if (pths[i]->attr_killflag) {
+			 printf("kill\n");
+			 pths[i]->info_killflag = TRUE;
+			 printf("kill\n");
+			 
+			 pths[i] = NULL;
+			 
+			 //	 reset_score(m, i);
+		    }
+		    else if (FD_ISSET(pths[i]->r_fd, &r_set)) {
 			 /* read fd */
 			 if (read(pths[i]->r_fd,(char *) &qs,max_size) > 0) {
 
 			      if (update_minefield(minef, qs.x, qs.y, i, us) > 0) {
 				   u_flag = 1;
-				   sprintf(msg,"x: %d y: %d player:%d",(int)qs.x,(int)qs.y, (int) i);
-				   	   mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
+				   // sprintf(msg,"x: %d y: %d player:%d",(int)qs.x,(int)qs.y, (int) i);
+				   //	   	   mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
 			      }
 			 }
 		    }
@@ -718,11 +801,18 @@ int main(int argc, char * argv[])
 	       */
 	       if (u_flag){
 		    for (int i = 0; i < us->len; i++) {
-			 sprintf(msg,"unveiled x:%d y:%d n:%d player:%d ", us->tiles[i].x, us->tiles[i].y, us->tiles[i].nearby, us->tiles[i].player);
-			 	mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
+			 if (pths[i] == NULL) {
+			      continue;
+			 }
+			 
+			 //	 sprintf(msg,"unveiled x:%d y:%d n:%d player:%d ", us->tiles[i].x, us->tiles[i].y, us->tiles[i].nearby, us->tiles[i].player);
+			 //	mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
 		    }
 
 		    for (int i = 0; i < cli_i; i++) {
+			 if (pths[i] == NULL) {
+			      continue;
+			 }
 			 write(pths[i]->w_fd, (char *) us, sizeof(int64_t) + sizeof(int8_t) * 4 * us->len);
 		    }
 		    us->len = 0;
@@ -733,6 +823,10 @@ int main(int argc, char * argv[])
 		    es->players = minef->players;
 		    memcpy(es->player_scores, minef->player_scores, players * sizeof(int64_t));
 		    for (int i = 0; i < us->len;i++) {
+			 if (pths[i] == NULL) {
+			      continue;
+			 }
+			 
 			 write(pths[i]->w_fd, (char *) es, es_size);
 		    }
 		    q = TRUE;
@@ -743,7 +837,7 @@ int main(int argc, char * argv[])
      printf("game ended.\n");
      getchar();
 
-     srv_exit();
+     srv_exit(pths, cli_i);
      //minef = create_minefield(cols, rows, mines);
 
      /* game loop */
