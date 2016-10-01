@@ -1,4 +1,4 @@
 /tmp/serv_listen;/tmp/serv_listen;27890
 /tmp/serv_listen;/tmp/serv_listen;localhost:27890
-/tmp/mq_listen;/tmp/mq_listen;27890
-/tmp/mq_listen;/tmp/mq_listen;localhost:27890
+/tmp/mq_listen;/tmp/mq_listen;30000
+/tmp/mq_listen;/tmp/mq_listen;localhost:30000
