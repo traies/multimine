@@ -9,10 +9,10 @@
 #include <signal.h>
 #include <marsh.h>
 #include <pthread.h>
- #include <mqueue.h>
+#include <mqueue.h>
 #include <string.h>
 #include "configurator.h"
-
+#include <msg_structs.h>
 
 
 #include <sys/time.h>
@@ -83,7 +83,9 @@ typedef struct Minefield
      int64_t cols, rows;
      int64_t players;
      int64_t players_left;
-     int64_t * player_scores;
+     int64_t player_scores[7][2];
+     int64_t player_ids[7];
+     int64_t unk_tiles;
      Tile *** tiles;
 } Minefield;
 
@@ -126,15 +128,14 @@ Minefield_p create_minefield(int64_t cols, int64_t rows, int64_t mines, int64_t 
      minefield->players_left = players;
      minefield->endflag = FALSE;
      minefield->winner_id = -1;
-     minefield->player_scores = calloc(1,sizeof(int64_t) * players);
-     if (!minefield->player_scores) {
-	  free(rand_arr);
-	  free(mine_arr);
-	  free(minefield->player_scores);
-	  free(minefield);
-	  return NULL;
-     }
 
+     for (int i = 0; i < players; i++) {
+	  minefield->player_scores[i][0] = i;
+	  minefield->player_scores[i][1] = 0;
+	  minefield->player_ids[i] = i;
+     }
+     minefield->unk_tiles = cols * rows - mines;
+     
      t = minefield->tiles = malloc(sizeof(Tile **) * cols);
      while(t && c < cols) {
 	  t = minefield->tiles[c] = malloc(sizeof(Tile*) * rows);
@@ -386,7 +387,8 @@ int64_t uncover_sector(Minefield_p m, int64_t x, int64_t y, int64_t player, int8
 	  return 0;
      }
      t = m->tiles[x][y];
-     if (t->ownerid >= 0) {
+     
+     if (t->ownerid >= 0 || m->player_scores[m->player_ids[player]][1] < 0) {
 	  return 0;
      }
      s = t->sector;
@@ -409,6 +411,70 @@ int64_t uncover_sector(Minefield_p m, int64_t x, int64_t y, int64_t player, int8
      return c;
 }
 
+void update_scores_to_ids(int64_t *player_ids, int64_t (*player_scores)[2],  int64_t players)
+{
+     for (int i = 0; i < players; i++) {
+	  player_ids[player_scores[i][0]] = i;
+     }
+}
+
+void sort_scores(int64_t (* player_scores)[2], int64_t players)
+{
+     int64_t aux0, aux1;
+     int j;
+     /* insertion sort */
+     for(int i = 1; i < players; i++) {
+	  aux0 = player_scores[i][0];
+	  aux1 = player_scores[i][1];
+	  j = i - 1;
+	  while ( j >= 0 && player_scores[j][1] < aux1) {
+	       player_scores[j+1][0] = player_scores[j][0];
+	       player_scores[j+1][1] = player_scores[j][1];
+	       j = j - 1;
+	  }
+	  player_scores[j+1][0] = aux0;
+	  player_scores[j+1][1] = aux1;
+     }
+     return;
+}
+
+int8_t check_win_state(int64_t (* pscores)[2], int64_t players, int64_t utiles )
+{
+     int8_t win_flag;
+     if (utiles <= 0) {
+	  return TRUE;
+     }
+     if (players > 1) {
+	  if (pscores[0][1] > utiles + pscores[1][1]) {
+	       return TRUE;
+	  }
+     }
+     return FALSE;
+}
+
+int8_t update_scores(Minefield * m, UpdateStruct * us )
+{
+     int64_t (* player_scores)[2];
+     int64_t players;
+     
+     if (m == NULL || us == NULL) {
+	  return;
+     }
+     player_scores = m->player_scores;
+     players = m->players;
+     
+     sort_scores(player_scores, players);
+     update_scores_to_ids(m->player_ids, player_scores, players);
+     
+     for (int i = 0; i < players; i++) {
+	  us->player_scores[i][0] = player_scores[i][0];
+	  us->player_scores[i][1] = player_scores[i][1];
+     }
+     us->players = players;
+     return check_win_state(player_scores, players, m->unk_tiles);
+}
+
+
 int64_t update_minefield(Minefield * m, int64_t x, int64_t y, int64_t player, UpdateStruct * us)
 {
      int64_t count = 0, base_index;
@@ -419,11 +485,12 @@ int64_t update_minefield(Minefield * m, int64_t x, int64_t y, int64_t player, Up
      base_index = us->len;
      count = uncover_sector(m, x, y, player,buf);
      if (count == 1 && buf[0][2] == 9) {
-	  m->player_scores[player] = -1;
+	  m->player_scores[m->player_ids[player]][1] = -1;
 	  m->players_left--;
      }
      else {
-	  m->player_scores[player] += count;
+	  m->player_scores[m->player_ids[player]][1] += count;
+	  m->unk_tiles -= count;
      }
      for (int i=0; i < count; i++) {
 	  us->tiles[base_index+i].x = buf[i][0];
@@ -435,12 +502,13 @@ int64_t update_minefield(Minefield * m, int64_t x, int64_t y, int64_t player, Up
      return count;
 }
 
-/*
+
 int64_t reset_score(Minefield * m, int64_t playerid)
 {
-     m->player_scores[player_ids[playerid]][0] = -1;
+     m->player_scores[m->player_ids[playerid]][0] = -1;
+     return 0;
 }
-*/
+
 /*
 Tile * uncover_tile(Minefield * m, uint64_t x, uint64_t y)
 {
@@ -653,6 +721,7 @@ int main(int argc, char * argv[])
      ClientPthreads * pths[10];
      int64_t cli_i = 0;
      Listener * lp = NULL;
+     int8_t endflag = FALSE;
 
 
      if (argc > 1) {
@@ -661,7 +730,7 @@ int main(int argc, char * argv[])
      else {
 	  players = DEFAULT_PLAYERS;
      }
-     us_size = cols * rows * 4 + sizeof(int64_t);
+     us_size = cols * rows * 4 + sizeof(UpdateStruct);
      us = malloc(us_size);
      es_size = players * sizeof(int64_t) + sizeof(int64_t) * 2;
      es = malloc(es_size);
@@ -802,6 +871,7 @@ int main(int argc, char * argv[])
              }
 	       */
 	       if (u_flag){
+		    endflag = update_scores(minef, us);
 		    for (int i = 0; i < us->len; i++) {
 			 if (pths[i] == NULL) {
 			      continue;
@@ -815,7 +885,7 @@ int main(int argc, char * argv[])
 			 if (pths[i] == NULL) {
 			      continue;
 			 }
-			 write(pths[i]->w_fd, (char *) us, sizeof(int64_t) + sizeof(int8_t) * 4 * us->len);
+			 write(pths[i]->w_fd, (char *) us, sizeof(UpdateStruct)+ sizeof(int8_t) * 4 * us->len);
 		    }
 		    us->len = 0;
 		    u_flag = 0;

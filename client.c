@@ -22,6 +22,7 @@
 #include <comms.h>
 #include <unistd.h>
 #include <configurator.h>
+#include <msg_structs.h>
 
 #define min(a,b)    ((a < b)? a:b)
 #define max(a,b)    ((a < b)? b:a)
@@ -104,36 +105,38 @@ void update_mines(WINDOW * win, int64_t mines)
      wprintw(win, "mines: %d", mines);
      wrefresh(win);
 }
+void print_score(WINDOW * win, int base, int position, int player, int score, int total_tiles, int missing_tiles, char first)
+{
+     int score_pc = (int) (( (double)score / total_tiles) * 100.0);
+     int total_pc = (int) (( (double)missing_tiles / total_tiles) * 100.0);
+     
+     wmove(win, base + position, 1);
+     wprintw(win, "            ");
+     wmove(win, base + position, 1);
+     wattron(win,COLOR_PAIR(player+10));
+     if (score >= 0) {
+	  wprintw(win, "PLAYER %d: %d %%", player, score_pc);
+	  if (first) {
+	       wprintw(win, "/ %d %%", total_pc);
+	  }
+     }
+     else {
+	  wprintw(win, "PLAYER %d: LOST", player);
+     }
+     wattroff(win,COLOR_PAIR(player + 10));
+}
 
-void update_scores(WINDOW * win, int64_t players,int64_t (*player_scores)[2], int64_t utiles)
+void update_scores(WINDOW * win, int64_t (*player_scores)[2], int64_t players, int64_t utiles, int64_t total_tiles)
 {
      int base = 5;
      if (players == 1 ) {
-	  wmove(win, base , 1);
-	  wprintw(win, "                ");
-	  wmove(win, base, 1);
-	  wattron(win,COLOR_PAIR(player_scores[0][0] + 3));
-	  wprintw(win, "player %d: %d", player_scores[0][0], player_scores[0][1]);
-	  wattroff(win,COLOR_PAIR(player_scores[0][0] + 2));
+	  print_score(win,base, 0, 0, player_scores[0][1], total_tiles, total_tiles, TRUE);
      }
      else {
-	  wmove(win, base , 1);
-	  wprintw(win, "            ");
-	  wmove(win, base , 1);
-	  wprintw(win, "player %d: %d / %d", (int)player_scores[0][0], (int) player_scores[0][1],(int) player_scores[1][1] + utiles);
-
+	  print_score(win,base, 0, player_scores[0][0], player_scores[0][1], total_tiles, player_scores[1][1] + utiles, TRUE);
+	  
 	  for (int i = 0; i < players; i++) {
-	       wmove(win, base + i, 1);
-	       wprintw(win, "            ");
-	       wmove(win, base + i, 1);
-
-	       if (player_scores[i][1] >= 0) {
-		    wprintw(win, "player %d: %d", player_scores[i][0], player_scores[i][1]);
-	       }
-	       else {
-		    wprintw(win, "player %d: LOST", player_scores[i][0]);
-	       }
-
+	       print_score(win, base, i, player_scores[i][0], player_scores[i][1], total_tiles, 0, FALSE);
 	  }
      }
      wrefresh(win);
@@ -260,7 +263,7 @@ int main(int argc, char *argv[])
 
      int64_t c, x, y, win_h, win_w,  mb_size_1 = 0, mb_size_2 = 0, count = 0, auxi = 0, auxj = 0, marks = 0;
      int8_t auxx, auxy, auxn, auxp;
-     int64_t utiles = 0;
+     int64_t utiles = 0, total_tiles;
      int8_t win_flag = FALSE, loose_flag = FALSE, quit_flag = FALSE;
      struct timespec init_frame_time, end_frame_time, diff_frame_time;
      struct timeval select_timeout;
@@ -273,11 +276,12 @@ int main(int argc, char *argv[])
      players = is.players;
      player_id = is.player_id;
 
-     us_size = sizeof(int64_t) + cols * rows * 4;
+     us_size = sizeof(UpdateStruct) + cols * rows * 4;
      us = malloc(us_size);
      mine_buffer = malloc(sizeof( int64_t * [2]) * (cols));
      mine_buffer_aux = malloc(sizeof(int64_t[3][2]) * (rows) * (cols));
      utiles = (cols) * (rows) - mines;
+     total_tiles = cols * rows - mines;
      if (!us || !mine_buffer || !mine_buffer_aux){
 	  return -1;
      }
@@ -318,6 +322,12 @@ int main(int argc, char *argv[])
      init_pair(7, COLOR_WHITE, COLOR_MAGENTA);
      init_pair(8, COLOR_WHITE, COLOR_CYAN);
      init_pair(9, COLOR_BLACK, COLOR_WHITE);
+     init_pair(10, COLOR_BLUE, COLOR_BLACK);
+     init_pair(11, COLOR_RED, COLOR_BLACK);
+     init_pair(12, COLOR_YELLOW, COLOR_BLACK);
+     init_pair(13, COLOR_GREEN, COLOR_BLACK);
+     init_pair(14, COLOR_MAGENTA, COLOR_BLACK);
+     init_pair(15, COLOR_CYAN, COLOR_BLACK);
 
      win_h = rows + 2;
      win_w = cols + 2;
@@ -340,7 +350,9 @@ int main(int argc, char *argv[])
 
      win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
 
-     update_scores(win_side, players, player_scores, utiles);
+    
+     update_scores(win_side, player_scores, players, utiles, total_tiles);
+     
      update_mines(win_side, mines);
      update_utiles(win_side, utiles);
      update_marks(win_side, marks);
@@ -446,7 +458,7 @@ int main(int argc, char *argv[])
 				   loose_flag = TRUE;
 			      }
 			      mines--;
-			      player_scores[player_ids[auxp]][1] = -1;
+			      utiles++;
 			 }
 			 else {
 			      player_scores[player_ids[auxp]][1]++;
@@ -460,13 +472,14 @@ int main(int argc, char *argv[])
 		    wmove(win,y,x);
 		    utiles-=count;
 		    update_utiles(win_side, utiles);
-		    sort_scores(player_scores, players);
-		    update_scores_to_ids(player_ids, player_scores, players);
-		    update_scores(win_side, players, player_scores,utiles);
-		    win_flag = check_win_state(player_ids, player_scores, players, utiles);
 	       }
+	       for (int i = 0; i < us->players; i++) {
+		    player_scores[i][0] = us->player_scores[i][0];
+		    player_scores[i][1] = us->player_scores[i][1];
+	       }
+	       update_scores(win_side, player_scores, players, utiles, total_tiles);
 	  }
-    current_utc_time(&end_frame_time);
+	  current_utc_time(&end_frame_time);
 	  //clock_gettime(CLOCK_REALTIME, &end_frame_time);
 	  time_diff(&diff_frame_time,&init_frame_time,&end_frame_time);
 	  nanosleep(&diff_frame_time,NULL);

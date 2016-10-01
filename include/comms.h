@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <sys/time.h>
 
+/*
 enum MessageType{
      INITGAME,
      QUERYMINE,
@@ -61,6 +62,7 @@ typedef struct UpdateStruct
 	  int8_t player;
      } tiles [];
 } UpdateStruct;
+*/
 
 typedef struct connection Connection ;
 typedef struct listener Listener;
