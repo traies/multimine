@@ -135,7 +135,7 @@ Minefield_p create_minefield(int64_t cols, int64_t rows, int64_t mines, int64_t 
 	  minefield->player_ids[i] = i;
      }
      minefield->unk_tiles = cols * rows - mines;
-     
+
      t = minefield->tiles = malloc(sizeof(Tile **) * cols);
      while(t && c < cols) {
 	  t = minefield->tiles[c] = malloc(sizeof(Tile*) * rows);
@@ -387,7 +387,7 @@ int64_t uncover_sector(Minefield_p m, int64_t x, int64_t y, int64_t player, int8
 	  return 0;
      }
      t = m->tiles[x][y];
-     
+
      if (t->ownerid >= 0 || m->player_scores[m->player_ids[player]][1] < 0) {
 	  return 0;
      }
@@ -456,16 +456,16 @@ int8_t update_scores(Minefield * m, UpdateStruct * us )
 {
      int64_t (* player_scores)[2];
      int64_t players;
-     
+
      if (m == NULL || us == NULL) {
 	  return;
      }
      player_scores = m->player_scores;
      players = m->players;
-     
+
      sort_scores(player_scores, players);
      update_scores_to_ids(m->player_ids, player_scores, players);
-     
+
      for (int i = 0; i < players; i++) {
 	  us->player_scores[i][0] = player_scores[i][0];
 	  us->player_scores[i][1] = player_scores[i][1];
@@ -734,6 +734,7 @@ int main(int argc, char * argv[])
      us = malloc(us_size);
      es_size = players * sizeof(int64_t) + sizeof(int64_t) * 2;
      es = malloc(es_size);
+
      if (!es || !us) {
 	  printf("memory error.\n");
 	  return -1;
@@ -757,10 +758,19 @@ int main(int argc, char * argv[])
 
      srv_addr = fifo;
 
-     /*
+
      srv_addr_mq ="/tmp/mq";
-     lp = mm_listen(srv_addr_mq);
-     system("gnome-terminal -e bash");
+
+     char * addr = configuration("config",mm_commtype(),3);
+
+      lp = mm_listen(addr);
+      if (lp == NULL) {
+    printf("fracaso\n");
+    return 0;
+      }
+
+
+     system("gnome-terminal -e ./bin/mq.out");
 
 
     c = mm_accept(lp) ;
@@ -773,14 +783,16 @@ int main(int argc, char * argv[])
      mm_disconnect(c);
        mqd_t mqd = mq_open("/mq",O_WRONLY);
 
-       printf("algo.\n");
+
 
        mm_disconnect_listener(lp);
 
-       printf("algo2.\n");
-     */
+
+
      /* open connection */
-     char * addr = configuration("config",mm_commtype(),1);
+
+     addr = configuration("config",mm_commtype(),1);
+
       lp = mm_listen(addr);
       if (lp == NULL) {
 	   printf("fracaso\n");
@@ -793,9 +805,10 @@ int main(int argc, char * argv[])
 	  printf("conexion establecida. Creando thread.\n");
 	  add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c, sizeof(QueryStruct), us_size);
 	  printf("thread creado..\n");
-	  //mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
+	  mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
 	  count++;
      }
+
      mm_disconnect_listener(lp);
      lp = NULL;
 
@@ -854,8 +867,8 @@ int main(int argc, char * argv[])
 
 			      if (update_minefield(minef, qs.x, qs.y, i, us) > 0) {
 				   u_flag = 1;
-				   // sprintf(msg,"x: %d y: %d player:%d",(int)qs.x,(int)qs.y, (int) i);
-				   //	   	   mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
+				    sprintf(msg,"x: %d y: %d player:%d",(int)qs.x,(int)qs.y, (int) i);
+				      	   mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
 			      }
 			 }
 		    }
@@ -877,8 +890,8 @@ int main(int argc, char * argv[])
 			      continue;
 			 }
 
-			 //	 sprintf(msg,"unveiled x:%d y:%d n:%d player:%d ", us->tiles[i].x, us->tiles[i].y, us->tiles[i].nearby, us->tiles[i].player);
-			 //	mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
+			 	 sprintf(msg,"unveiled x:%d y:%d n:%d player:%d ", us->tiles[i].x, us->tiles[i].y, us->tiles[i].nearby, us->tiles[i].player);
+			 	mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
 		    }
 
 		    for (int i = 0; i < cli_i; i++) {

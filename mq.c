@@ -12,8 +12,9 @@
 
 
 int main(int argc,char * argv[]){
-  char * addr;
-  addr="localhost";
+  char * addr = configuration("config",mm_commtype(),2);
+
+  
   Connection * c = mm_connect(addr);
 if(!c){
   printf("failed\n" );

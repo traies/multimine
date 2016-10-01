@@ -4,6 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 #define SIZE 128
+#define CLIENT 0
+#define SERVER 1
+#define MQ 2
+#define SERVER_MQ 3
 static char * getField(char * line,int n);
 
 char * configuration(char * config_file,int comm_mode,int mode){
@@ -13,15 +17,26 @@ char * configuration(char * config_file,int comm_mode,int mode){
   fgets(s_line,SIZE,f);
   char  c_line[SIZE];
   fgets(c_line,SIZE,f);
+  char  s_mq_line[SIZE];
+  fgets(s_mq_line,SIZE,f);
+  char  mq_line[SIZE];
+  fgets(mq_line,SIZE,f);
   s_line[strlen(s_line)-1]=0;
   c_line[strlen(c_line)-1]=0;
+  s_mq_line[strlen(s_mq_line)-1]=0;
+  mq_line[strlen(mq_line)-1]=0;
   char * using ;
-  if(mode){
+  if(mode == SERVER){
     using=s_line;
-  } else {
+  } else if (mode == CLIENT){
     using=c_line;
+  }else if ( mode == SERVER_MQ){
+    using = s_mq_line;
+  }else{
+    using = mq_line;
   }
   char * tok;
+
   switch (comm_mode) {
     case COMM_FIFO:
       tok=getField(using,0);
