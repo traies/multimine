@@ -109,7 +109,7 @@ void print_score(WINDOW * win, int base, int position, int player, int score, in
 {
      int score_pc = (int) (( (double)score / total_tiles) * 100.0);
      int total_pc = (int) (( (double)missing_tiles / total_tiles) * 100.0);
-     
+
      wmove(win, base + position, 1);
      wprintw(win, "            ");
      wmove(win, base + position, 1);
@@ -134,7 +134,7 @@ void update_scores(WINDOW * win, int64_t (*player_scores)[2], int64_t players, i
      }
      else {
 	  print_score(win,base, 0, player_scores[0][0], player_scores[0][1], total_tiles, player_scores[1][1] + utiles, TRUE);
-	  
+
 	  for (int i = 0; i < players; i++) {
 	       print_score(win, base, i, player_scores[i][0], player_scores[i][1], total_tiles, 0, FALSE);
 	  }
@@ -269,6 +269,7 @@ int main(int argc, char *argv[])
      struct timeval select_timeout;
      int64_t (** mine_buffer)[2] = NULL, (*mine_buffer_aux)[3][2] = NULL;
      WINDOW * win, * win_side;
+     int i;
 
      cols = is.cols;
      rows = is.rows;
@@ -350,9 +351,9 @@ int main(int argc, char *argv[])
 
      win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
 
-    
+
      update_scores(win_side, player_scores, players, utiles, total_tiles);
-     
+
      update_mines(win_side, mines);
      update_utiles(win_side, utiles);
      update_marks(win_side, marks);
@@ -499,6 +500,46 @@ int main(int argc, char *argv[])
 	  wrefresh(win_side);
 	  getch();
      }
+     wclear(win_side);
+     win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
+     wmove(win_side,1,1);
+     wprintw(win_side,"Highscores:");
+     for(i = 2;i <5 ;i++){
+       wmove(win_side,i,1);
+       wprintw(win_side,"PEDRITO 5500");//print scores
+     }
+      wrefresh(win_side);
+     if( 1 /*win_flag  && tu score es mejor que alguno de los 10 mejores*/){
+       char nombre[100] = " ";
+       int j = 0;
+       wmove(win_side,i+1,1);
+       wprintw(win_side,"Su score es : ");
+       wmove(win_side,i+2,1);
+       wprintw(win_side,"Ingrese un nombre de ");
+       wmove(win_side,i+3,1);
+       wprintw(win_side,"hasta 10 caracteres:");
+       wmove(win_side,i+4,1);
+       wrefresh(win_side);
+       while((c=toupper(getch())) != '\n' ){
+         if(c == 263 && j>0){//backspace
+           wmove(win_side,i+4,j);
+           wprintw(win_side," ");
+           wmove(win_side,i+4,j--);
+           wrefresh(win_side);
+         }
+         else if(j<10 && c != 263){
+         nombre[j++]=c;
+          wprintw(win_side,"%c",c);
+          wrefresh(win_side);
+          }
+        }
+         wmove(win_side,i+5,1);
+         wprintw(win_side,"Se ha agregado ",nombre);
+         wmove(win_side,i+6,1);
+         wprintw(win_side,"correctamente! ",nombre);
+         wrefresh(win_side);
+      }
+      getch();
 
      cli_exit();
      return 0;
