@@ -60,13 +60,13 @@ Connection * mm_connect(char * addr){
   if(sfd==-1){
     return NULL;
   }
-  int port=0;
-  char dir[64];
-  sscanf(addr,"%s:%d",dir,port);
-
+  char tmp[64];
+  strcpy(tmp,addr);
+  char * dir = strtok(tmp,":");
+  char * port = strtok(NULL,":");
   memset(&sa,0,sizeof(sa));
   sa.sin_family=AF_INET;
-  sa.sin_port=htons(port);
+  sa.sin_port=htons(atoi(port));
   val = inet_pton(AF_INET,dir,&sa.sin_addr);
   if(connect(sfd,(struct sockaddr *)&sa,sizeof(sa))==-1){
     close(sfd);

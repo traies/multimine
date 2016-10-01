@@ -215,7 +215,8 @@ int8_t check_win_state(int64_t * pids, int64_t (* pscores)[2], int64_t players, 
 
 int main(int argc, char *argv[])
 {
-     char * srv_addr=configuration("config",mm_commtype(),0);
+     char * srv_addr;
+     srv_addr=configuration("config",mm_commtype(),0);
      int64_t rows, cols, mines, players, player_id, us_size;
      int64_t player_scores[8][2];
      int64_t player_ids[8];
@@ -239,7 +240,6 @@ int main(int argc, char *argv[])
      /* setting fifo path */
      sprintf(fin, "/tmp/r%d", getpid());
      sprintf(fout, "/tmp/w%d", getpid());
-
      signal(SIGINT, sig_handler);
      con = mm_connect(srv_addr);
 
