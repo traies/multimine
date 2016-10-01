@@ -21,6 +21,7 @@
 #include <marsh.h>
 #include <comms.h>
 #include <unistd.h>
+#include <configurator.h>
 
 #define min(a,b)    ((a < b)? a:b)
 #define max(a,b)    ((a < b)? b:a)
@@ -214,7 +215,7 @@ int8_t check_win_state(int64_t * pids, int64_t (* pscores)[2], int64_t players, 
 
 int main(int argc, char *argv[])
 {
-     char * srv_addr;
+     char * srv_addr=configuration("config",mm_commtype(),0);
      int64_t rows, cols, mines, players, player_id, us_size;
      int64_t player_scores[8][2];
      int64_t player_ids[8];
@@ -223,15 +224,17 @@ int main(int argc, char *argv[])
      InitStruct is;
      Connection * con;
 
+     /*
      if (argc <=1) {
        printf("no anduvo.\n");
        return 0;
      }
      else {
-       /* setting up communications */
        printf("%s\n", argv[1]);
        srv_addr = argv[1];
      }
+     */
+
 
      /* setting fifo path */
      sprintf(fin, "/tmp/r%d", getpid());
@@ -495,7 +498,7 @@ int main(int argc, char *argv[])
 ** https://gist.github.com/jbenet/1087739
 */
 static void current_utc_time(struct timespec *ts) {
-  #ifdef __MACH__ 
+  #ifdef __MACH__
     clock_serv_t cclock;
     mach_timespec_t mts;
     host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);

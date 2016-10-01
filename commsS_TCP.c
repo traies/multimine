@@ -8,7 +8,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <netdb.h>
-#define PORT 25481
 
 struct message{
   int size;
@@ -31,7 +30,7 @@ static int write_msg(int w_fd,const char * m,int size);
 Listener_p mm_listen(char * addr){
   struct addrinfo hints, *res;
   int sfd, true = 1;
-  
+
   memset(&hints, 0, sizeof(hints));
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
@@ -61,11 +60,14 @@ Connection * mm_connect(char * addr){
   if(sfd==-1){
     return NULL;
   }
+  int port=0;
+  char dir[64];
+  sscanf(addr,"%s:%d",dir,port);
 
   memset(&sa,0,sizeof(sa));
   sa.sin_family=AF_INET;
-  sa.sin_port=htons(PORT);
-  val = inet_pton(AF_INET,addr,&sa.sin_addr);
+  sa.sin_port=htons(port);
+  val = inet_pton(AF_INET,dir,&sa.sin_addr);
   if(connect(sfd,(struct sockaddr *)&sa,sizeof(sa))==-1){
     close(sfd);
     return NULL;

@@ -11,6 +11,7 @@
 #include <pthread.h>
  #include <mqueue.h>
 #include <string.h>
+#include "configurator.h"
 
 
 
@@ -435,7 +436,7 @@ int64_t update_minefield(Minefield * m, int64_t x, int64_t y, int64_t player, Up
 }
 
 /*
-int64_t reset_score(Minefield * m, int64_t playerid) 
+int64_t reset_score(Minefield * m, int64_t playerid)
 {
      m->player_scores[player_ids[playerid]][0] = -1;
 }
@@ -521,7 +522,7 @@ void * attend(void * a)
      struct timeval timeout;
      timeout.tv_sec = 1;
      timeout.tv_usec = 0;
-     
+
      free(a);
      /* expects blocking read */
      while (!*killflag) {
@@ -559,7 +560,7 @@ void * inform(void * a)
      int8_t * killflag = info->killflag;
      int64_t len, buf_size = BUF_SIZE;
      fd_set fds;
-     
+
      struct timeval timeout;
      timeout.tv_sec = 1;
      timeout.tv_usec = 0;
@@ -577,7 +578,7 @@ void * inform(void * a)
 	  }
      }
      printf("algo inform\n");
-     
+
      mm_disconnect(con);
      pthread_exit(0);
 }
@@ -652,8 +653,8 @@ int main(int argc, char * argv[])
      ClientPthreads * pths[10];
      int64_t cli_i = 0;
      Listener * lp = NULL;
-     
-     
+
+
      if (argc > 1) {
 	  sscanf(argv[1],"%d",&players);
      }
@@ -678,7 +679,7 @@ int main(int argc, char * argv[])
      signal(SIGINT,sig_handler);
 
      //system("rm /tmp/mine_serv");
-     
+
      system("rm /tmp/mq");
      mq_unlink("/mq");
 
@@ -704,18 +705,19 @@ int main(int argc, char * argv[])
        mqd_t mqd = mq_open("/mq",O_WRONLY);
 
        printf("algo.\n");
-       
+
        mm_disconnect_listener(lp);
 
        printf("algo2.\n");
      */
      /* open connection */
-      lp = mm_listen("25481");
+     char * addr = configuration("config",mm_commtype(),1);
+      lp = mm_listen(addr);
       if (lp == NULL) {
 	   printf("fracaso\n");
 	   return 0;
       }
-      
+
      /* wait for connections */
      while ( count < players && (c = mm_accept(lp)) != NULL) {
 	  /* established conection on c, needs to create thread */
@@ -727,7 +729,7 @@ int main(int argc, char * argv[])
      }
      mm_disconnect_listener(lp);
      lp = NULL;
-     
+
      if (count < players) {
 	  /* connections failed */
 	  srv_exit(NULL, 0);
@@ -743,7 +745,7 @@ int main(int argc, char * argv[])
 	  is.player_id = i;
 	  write(pths[i]->w_fd, (char *) &is, sizeof(InitStruct));
 	  printf("b\n");
-	  
+
      }
 
      while (!q) {
@@ -772,9 +774,9 @@ int main(int argc, char * argv[])
 			 printf("kill\n");
 			 pths[i]->info_killflag = TRUE;
 			 printf("kill\n");
-			 
+
 			 pths[i] = NULL;
-			 
+
 			 //	 reset_score(m, i);
 		    }
 		    else if (FD_ISSET(pths[i]->r_fd, &r_set)) {
@@ -804,7 +806,7 @@ int main(int argc, char * argv[])
 			 if (pths[i] == NULL) {
 			      continue;
 			 }
-			 
+
 			 //	 sprintf(msg,"unveiled x:%d y:%d n:%d player:%d ", us->tiles[i].x, us->tiles[i].y, us->tiles[i].nearby, us->tiles[i].player);
 			 //	mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
 		    }
@@ -826,7 +828,7 @@ int main(int argc, char * argv[])
 			 if (pths[i] == NULL) {
 			      continue;
 			 }
-			 
+
 			 write(pths[i]->w_fd, (char *) es, es_size);
 		    }
 		    q = TRUE;
