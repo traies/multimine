@@ -127,17 +127,15 @@ void print_score(WINDOW * win, int base, int position, int player, int score, in
      wattroff(win,COLOR_PAIR(player + 10));
 }
 
-void update_scores(WINDOW * win, int64_t (*player_scores)[2], int64_t players, int64_t utiles, int64_t total_tiles)
+void update_scores(WINDOW * win, int64_t player_scores[8], int64_t players, int64_t utiles, int64_t total_tiles)
 {
      int base = 5;
      if (players == 1 ) {
-	  print_score(win,base, 0, 0, player_scores[0][1], total_tiles, total_tiles, TRUE);
+	  print_score(win,base, 0, 0, player_scores[0], total_tiles, total_tiles, TRUE);
      }
      else {
-	  print_score(win,base, 0, player_scores[0][0], player_scores[0][1], total_tiles, player_scores[1][1] + utiles, TRUE);
-
 	  for (int i = 0; i < players; i++) {
-	       print_score(win, base, i, player_scores[i][0], player_scores[i][1], total_tiles, 0, FALSE);
+	       print_score(win, base, i, i, player_scores[i], total_tiles, 0, FALSE);
 	  }
      }
      wrefresh(win);
@@ -179,7 +177,7 @@ void time_diff(struct timespec * diff, struct timespec * init, struct timespec *
      }
      return;
 }
-
+/*
 void update_scores_to_ids(int64_t *player_ids, int64_t (*player_scores)[2],  int64_t players)
 {
      for (int i = 0; i < players; i++) {
@@ -205,7 +203,8 @@ void sort_scores(int64_t (* player_scores)[2], int64_t players)
      }
      return;
 }
-
+*/
+/*
 int8_t check_win_state(int64_t * pids, int64_t (* pscores)[2], int64_t players, int64_t utiles )
 {
      int8_t win_flag;
@@ -219,14 +218,13 @@ int8_t check_win_state(int64_t * pids, int64_t (* pscores)[2], int64_t players, 
      }
      return FALSE;
 }
-
+*/
 int main(int argc, char *argv[])
 {
      char * srv_addr;
      srv_addr=configuration("config",mm_commtype(),0);
      int64_t rows, cols, mines, players, player_id, us_size;
-     int64_t player_scores[8][2];
-     int64_t player_ids[8];
+     int64_t player_scores[8];
      QueryStruct qs;
      UpdateStruct  * us;
      InitStruct *is;
@@ -321,11 +319,7 @@ int main(int argc, char *argv[])
 	  }
      }
 
-     for (int i = 0; i < players; i++) {
-	  player_scores[i][0] = i;
-	  player_scores[i][1] = 0;
-	  player_ids[i] = i;
-     }
+     
 
      /* ncurses init */
      initscr();
@@ -513,9 +507,7 @@ int main(int argc, char *argv[])
 			      mines--;
 			      utiles++;
 			 }
-			 else {
-			      player_scores[player_ids[auxp]][1]++;
-			 }
+			 
 			 mine_buffer[auxx][auxy][0] = auxn;
 			 mine_buffer[auxx][auxy][1] = us->tiles[i].player;
 			 draw_tile(win, auxy,auxx,auxn, us->tiles[i].player + 3);
@@ -527,8 +519,7 @@ int main(int argc, char *argv[])
 		    update_utiles(win_side, utiles);
 	       }
 	       for (int i = 0; i < us->players; i++) {
-		    player_scores[i][0] = us->player_scores[i][0];
-		    player_scores[i][1] = us->player_scores[i][1];
+		    player_scores[i] = us->player_scores[i];
 	       }
 	       update_scores(win_side, player_scores, players, utiles, total_tiles);
 	  }

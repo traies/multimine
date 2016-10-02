@@ -36,7 +36,7 @@ typedef struct QueryStruct
 typedef struct UpdateStruct
 {
      int8_t players;
-     int64_t player_scores[8][2];
+     int64_t player_scores[8];
      int64_t len;
      struct TileUpdate
      {

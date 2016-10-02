@@ -36,8 +36,8 @@ static int64_t update_marsh(char buf[], const UpdateStruct * us)
      memcpy(buf, (char *) &us->len, sizeof(int64_t));
      buf += sizeof(int64_t);
      *buf++ = us->players;
-     memcpy(buf,us->player_scores, sizeof(int64_t[8][2]));
-     buf += sizeof(int64_t[8][2]);
+     memcpy(buf,us->player_scores, sizeof(int64_t[8]));
+     buf += sizeof(int64_t[8]);
      for (int i = 0; i < us->len; i++) {
 	  *buf++ = us->tiles[i].x;
 	  *buf++ = us->tiles[i].y;

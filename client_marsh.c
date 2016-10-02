@@ -44,8 +44,8 @@ static int64_t update_unmarsh(char data_struct[], char buf[])
      memcpy(&us->len, &buf[1], sizeof(int64_t));
      buf += sizeof(int64_t) + 1;
      us->players = *buf++;
-     memcpy(&us->player_scores, buf, sizeof(int64_t[8][2]));
-     buf += sizeof(int64_t[8][2]);
+     memcpy(&us->player_scores, buf, sizeof(int64_t[8]));
+     buf += sizeof(int64_t[8]);
      for (int i = 0; i < len; i++) {
 	  us->tiles[i].x = *buf++;
 	  us->tiles[i].y = *buf++;
