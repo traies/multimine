@@ -17,11 +17,12 @@ static int64_t query_marsh(char buf[], const QueryStruct * qs)
      return sizeof(QueryStruct) + 1;
 }
 
+
 static int64_t init_unmarsh(InitStruct ** is, char buf[])
 {
      *is = calloc(1, sizeof(InitStruct));
      if(!*is) {
-	  return -1;
+	      return -1;
      }
      buf++;
      memcpy(&(*is)->rows, buf,sizeof(int64_t));
@@ -55,6 +56,20 @@ static int64_t update_unmarsh(char data_struct[], char buf[])
      return sizeof(UpdateStruct) + len * 4;
 }
 
+static int64_t highscore_unmarsh(char data_struct[], char buf[])
+{
+  Highscore * h;
+  data_struct[0] = buf[0];
+  buf++;
+  h = (Highscore *) &data_struct[1];
+  int i = 0;
+  do{
+    memcpy(h+i,buf,sizeof(Highscore));
+    buf += sizeof(Highscore);
+  }while(strcmp(h[i++].name,"")!=0);
+  return 1+sizeof(Highscore)*(i-1);
+}
+
 static int64_t endgame_unmarsh(char data_struct[], char buf[])
 {
      EndGameStruct * es;
@@ -80,6 +95,18 @@ static int64_t send(Connection * c,  void * data, int64_t (*marsh)(void*, const 
 int64_t send_query(Connection * c, QueryStruct * qs)
 {
      return send(c, (void *) qs, (int64_t (*) (void *, const void *))query_marsh);
+}
+
+
+int64_t send_h_query(Connection * c)
+{
+  int len = 1;
+  static char buf[2];
+  if (c == NULL) {
+    return -1;
+  }
+  buf[0]=(char)HIGHSCORE;
+  return mm_write(c, buf, len);
 }
 
 int8_t receive_init(Connection * c,InitStruct ** data_struct, struct timeval * timeout, int64_t tries)
@@ -124,7 +151,7 @@ int8_t receive_update(Connection * c, char * data_struct, int64_t size, struct t
      static char * buf = NULL;
      static int buf_size = 0;
      int64_t read, ret;
-     
+
      if (buf_size < size) {
 	  free(buf);
 	  buf = malloc(size);
@@ -143,7 +170,7 @@ int8_t receive_update(Connection * c, char * data_struct, int64_t size, struct t
 	  return DISCONNECT;
      }
      if (buf[0] == UPDATEGAME) {
-	  
+
 	  if (update_unmarsh(data_struct, buf) > 0){
 	       ret = UPDATEGAME;
 	  }
@@ -158,6 +185,14 @@ int8_t receive_update(Connection * c, char * data_struct, int64_t size, struct t
 	  else {
 	       ret = ERROR;
 	  }
+     }
+     else if (buf[0] == HIGHSCORE) {
+   if (highscore_unmarsh(data_struct, buf) > 0){
+        ret = HIGHSCORE;
+   }
+   else {
+        ret = ERROR;
+   }
      }
      else {
 	  ret = ERROR;

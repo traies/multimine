@@ -1,17 +1,18 @@
 CC=gcc  -std=c99
 LIBS=-lncurses -pthread
 
-COMMON_SRC= commsS_TCP.c configurator.c  msg_structs.c 
+COMMON_SRC= commsS_TCP.c configurator.c  msg_structs.c
 COMMON_OBJ= $(COMMON_SRC:.c=.o)
 CLIENT_SRC= client.c client_marsh.c
 CLIENT_OBJ= $(CLIENT_SRC:.c=.o)
-SERVER_SRC= server.c server_marsh.c queue.c game.c
+SERVER_SRC= server.c server_marsh.c queue.c game.c db.c
 SERVER_OBJ= $(SERVER_SRC:.c=.o)
 MQ_SRC= mq.c
 MQ_OBJ= $(MQ_SRC:.c=.o)
 BIN_CLIENT=./bin/client.out
 BIN_SERVER=./bin/server.out
 BIN_MQ=./bin/mq.out
+
 
 all:	$(BIN_CLIENT) $(BIN_SERVER) $(BIN_MQ)
 
@@ -26,7 +27,7 @@ $(BIN_MQ): $(COMMON_OBJ) $(MQ_OBJ)
 		$(CC) -o $(BIN_MQ) $(MQ_OBJ) $(COMMON_OBJ) $(LIBS) -lrt
 
 $(BIN_SERVER): $(COMMON_OBJ) $(SERVER_OBJ)
-	$(CC) -o $(BIN_SERVER) $(SERVER_OBJ) $(COMMON_OBJ) $(LIBS) -lrt
+	$(CC) -o $(BIN_SERVER) $(SERVER_OBJ) $(COMMON_OBJ)  $(LIBS) -lrt -lm -l sqlite3
 
 
 

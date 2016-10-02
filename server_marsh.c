@@ -56,6 +56,17 @@ static int64_t endgame_marsh(char buf[], const EndGameStruct * es)
      return 1 + sizeof(EndGameStruct);
 }
 
+static int64_t highscore_marsh(char buf[], const Highscore * h)
+{
+     *buf++ = HIGHSCORE;
+     int i = 0;
+     while(strcmp(h[i].name,"")!=0){
+       memcpy(buf, &h[i++], sizeof(Highscore));
+       buf+= sizeof(Highscore);
+     }
+     return 1 + sizeof(Highscore)*i;
+}
+
 static int64_t send(Connection * c, void * data, int64_t (*marsh)(void*, const void*))
 {
      int len;
@@ -81,12 +92,16 @@ int64_t send_endgame(Connection * c, EndGameStruct * es)
 {
      return send(c, (void *) es, (int64_t (*) (void *, const void *)) endgame_marsh);
 }
+int64_t send_highscore(Connection * c,Highscore * h)
+{
+     return send(c, (void *) h, (int64_t (*) (void *, const void *)) highscore_marsh);
+}
 
 int64_t query_unmarsh(char data_struct[], char buf[])
 {
      QueryStruct * qs = (QueryStruct *) &data_struct[1];
      data_struct[0] = buf[0];
-     memcpy(&qs->x, &buf[1], 1); 
+     memcpy(&qs->x, &buf[1], 1);
      memcpy(&qs->y, &buf[2], 1);
      return sizeof(QueryStruct) + 1;
 }
@@ -115,11 +130,12 @@ int8_t receive(Connection * c, char * data_struct, int64_t size, struct timeval 
      }
      if (buf[0] == QUERYMINE) {
 	  ret = query_unmarsh(data_struct, buf);
-     }
+  }else if(buf[0] == HIGHSCORE){
+    data_struct[0]= HIGHSCORE;
+    ret = 1;
+  }
      else {
 	  ret = 0;
      }
      return ret;
 }
-
-	      

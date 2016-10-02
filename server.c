@@ -164,6 +164,11 @@ void * inform(void * a)
 		    read(r_fd, &buf[1], sizeof(EndGameStruct));
 		    send_endgame(con, (EndGameStruct *) (buf + 1));
 	       }
+         else if (buf[0] == HIGHSCORE) {
+           read(r_fd, &buf[1], sizeof(int));
+          read(r_fd, &buf[1+sizeof(int)], (int)buf[1]*sizeof(Highscore));
+          send_highscore(con, (Highscore *) (buf + 1+sizeof(int)));
+        }
 	  }
 	  else if (FD_ISSET(r_fd, &fds) && len == 0) {
 	       break;
@@ -266,14 +271,17 @@ int main(int argc, char * argv[])
      us->len = 0;
 
      int8_t u_flag = 0;
+     int8_t h_flag = 0;
+     int player;
+      Highscore * h;
 
      timeout.tv_sec = 10;
      timeout.tv_usec = 0;
-     
+
      signal(SIGINT,sig_handler);
-     
+
      //system("rm /tmp/mine_serv");
-     
+
      system("rm /tmp/mq");
      mq_unlink("/mq");
 
@@ -281,7 +289,7 @@ int main(int argc, char * argv[])
      sprintf(fifo, "/tmp/mine_serv");
 
      srv_addr = fifo;
-     
+
      /*
      srv_addr_mq ="/tmp/mq";
 
@@ -342,11 +350,13 @@ int main(int argc, char * argv[])
      }
      /* create minefield */
      minef = create_minefield(cols, rows, mines, players);
-     
+
      char * data_struct;
+     char * highscore_struct;
      int data_size;
      data_struct = malloc(sizeof(UpdateStruct) + 4 * cols * rows + 1);
-     if (!data_struct) {
+     highscore_struct = malloc(sizeof(Highscore)*10 + 1+sizeof(int));
+     if (!data_struct || !highscore_struct) {
 	  printf("memory error\n");
 	  return -1;
      }
@@ -402,10 +412,13 @@ int main(int argc, char * argv[])
 					u_flag = 1;
 					//    sprintf(msg,"x: %d y: %d player:%d",(int)qs.x,(int)qs.y, (int) i);
 					//	   mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
-				   }
-			      }
+        }
+      }else if (data_struct[0] == HIGHSCORE){
+              player= i;
+              h_flag = 1;
+            }
+          }
 			 }
-		    }
 		    else {
 			 FD_SET(pths[i]->r_fd, &r_set);
 		    }
@@ -419,11 +432,11 @@ int main(int argc, char * argv[])
 	       */
 	       endflag = check_win_state(minef, &es);
 	       if (u_flag){
-		    
-		    
+
+
 			 //	 sprintf(msg,"unveiled x:%d y:%d n:%d player:%d ", us->tiles[i].x, us->tiles[i].y, us->tiles[i].nearby, us->tiles[i].player);
 				 //	mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
-		    
+
 		    update_scores(minef, us);
 		    msg_type = UPDATEGAME;
 		    data_struct[0] = msg_type;
@@ -434,22 +447,37 @@ int main(int argc, char * argv[])
 			      continue;
 			 }
 			 //write(pths[i]->w_fd, &msg_type, 1);
-			 
+
 			 write(pths[i]->w_fd, data_struct, data_size + 1);
 		    }
 		    us->len = 0;
 		    u_flag = 0;
-	       }
+      }else if (h_flag){
+        int count;
+        open_database();
+        insert_highscore("hola",520);
+        insert_highscore("hoa",450);
+        insert_highscore("hla",400);
+        insert_highscore("",52);
+       h = get_highscores(&count);
+        msg_type = HIGHSCORE;
+        highscore_struct[0] = msg_type;
+        highscore_struct[1] = count;
+		    data_size = sizeof(Highscore) *count;
+		    memcpy(&highscore_struct[1+sizeof(int)], h, data_size);
+	  write(pths[player]->w_fd, highscore_struct, data_size + 1);
+        h_flag = 0;
+      }
 	       if (endflag) {
 		    msg_type = ENDGAME;
 		    data_struct[0] = msg_type;
 		    memcpy(&data_struct[1], &es, sizeof(EndGameStruct));
-		    
+
 		    for (int i = 0; i < cli_i;i++) {
 			 if (pths[i] == NULL) {
 			      continue;
 			 }
-			 
+
 			 write(pths[i]->w_fd, data_struct, sizeof(EndGameStruct) + 1);
 		    }
 		    q = TRUE;
