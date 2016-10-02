@@ -55,17 +55,15 @@ static int64_t update_unmarsh(char data_struct[], char buf[])
      return sizeof(UpdateStruct) + len * 4;
 }
 
-static int64_t endgame_unmarsh(EndGameStruct ** es, char buf[])
+static int64_t endgame_unmarsh(char data_struct[], char buf[])
 {
-     *es = malloc(sizeof(EndGameStruct));
-     if (!*es) {
-	  return -1;
-     }
-     buf++;
-     (*es)->players = *buf++;
-     (*es)->winner_id = *buf++;
-     memcpy((*es)->player_scores, buf, sizeof(int64_t[8]));
-     return sizeof(EndGameStruct);
+     EndGameStruct * es;
+     data_struct[0] = buf[0];
+     es = (EndGameStruct *)&data_struct[1];
+     es->players = buf[1];
+     es->winner_id = buf[2];
+     memcpy(es->player_scores, &buf[3], sizeof(int64_t[8]));
+     return sizeof(EndGameStruct) + 1;
 }
 
 static int64_t send(Connection * c,  void * data, int64_t (*marsh)(void*, const void*))
@@ -154,7 +152,7 @@ int8_t receive_update(Connection * c, char * data_struct, int64_t size, struct t
 	  }
      }
      else if (buf[0] == ENDGAME) {
-	  if (endgame_unmarsh((EndGameStruct **)data_struct, buf) > 0){
+	  if (endgame_unmarsh(data_struct, buf) > 0){
 	       ret = ENDGAME;
 	  }
 	  else {

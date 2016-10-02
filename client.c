@@ -106,10 +106,9 @@ void update_mines(WINDOW * win, int64_t mines)
      wprintw(win, "mines: %d", mines);
      wrefresh(win);
 }
-void print_score(WINDOW * win, int base, int position, int player, int score, int total_tiles, int missing_tiles, char first)
+void print_score(WINDOW * win, int base, int position, int player, int score, int total_tiles)
 {
      int score_pc = (int) (( (double)score / total_tiles) * 100.0);
-     int total_pc = (int) (( (double)missing_tiles / total_tiles) * 100.0);
 
      wmove(win, base + position, 1);
      wprintw(win, "            ");
@@ -117,9 +116,6 @@ void print_score(WINDOW * win, int base, int position, int player, int score, in
      wattron(win,COLOR_PAIR(player+10));
      if (score >= 0) {
 	  wprintw(win, "PLAYER %d: %d %%", player, score_pc);
-	  if (first) {
-	       wprintw(win, "/ %d %%", total_pc);
-	  }
      }
      else {
 	  wprintw(win, "PLAYER %d: LOST", player);
@@ -130,13 +126,8 @@ void print_score(WINDOW * win, int base, int position, int player, int score, in
 void update_scores(WINDOW * win, int64_t player_scores[8], int64_t players, int64_t utiles, int64_t total_tiles)
 {
      int base = 5;
-     if (players == 1 ) {
-	  print_score(win,base, 0, 0, player_scores[0], total_tiles, total_tiles, TRUE);
-     }
-     else {
-	  for (int i = 0; i < players; i++) {
-	       print_score(win, base, i, i, player_scores[i], total_tiles, 0, FALSE);
-	  }
+     for (int i = 0; i < players; i++) {
+	  print_score(win, base, i, i, player_scores[i], total_tiles);
      }
      wrefresh(win);
 }
@@ -285,7 +276,8 @@ int main(int argc, char *argv[])
      int i;
      int highscores_on = 0;
      int8_t msg_type, x, y;
-
+     EndGameStruct * es;
+     
      cols = is->cols;
      rows = is->rows;
      mines= is->mines;
@@ -319,7 +311,9 @@ int main(int argc, char *argv[])
 	  }
      }
 
-     
+     for (int i=0; i<players;i++) {
+	  player_scores[i] = 0;
+     }
 
      /* ncurses init */
      initscr();
@@ -527,6 +521,23 @@ int main(int argc, char *argv[])
 	       cli_exit("desconectado\n");
 	  }
 	  else if (msg_type == ENDGAME) {
+	       es = (EndGameStruct *) &data_struct[1];
+	       for (int i = 0; i < es->players; i++) {
+		    player_scores[i] = us->player_scores[i];
+	       }
+	       update_scores(win_side, player_scores, players, utiles, total_tiles);
+	       wmove(win_side, 5 + es->players + 1, 1);
+	       if (es->winner_id == player_id) {
+		    wprintw(win_side, "YOU WON!");
+	       }
+	       else {
+		    wprintw(win_side, "YOU LOSE!");
+	       }
+	       wmove(win_side, 5 + es->players + 2, 1);
+	       wprintw(win_side, "PRESS ENTER TO EXIT");
+	       wrefresh(win_side);
+	       timeout(-1);
+	       while(getch()!='\n');
 	       cli_exit("termino el juego\n");
 	  }
 	  /*else if (mm_select(con, &select_timeout) > 0) {

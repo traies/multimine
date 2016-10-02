@@ -139,7 +139,7 @@ void * inform(void * a)
      int8_t * killflag = info->killflag;
      int64_t len, buf_size = BUF_SIZE;
      fd_set fds;
-
+     UpdateStruct * us;
      struct timeval timeout;
      timeout.tv_sec = 1;
      timeout.tv_usec = 0;
@@ -149,23 +149,30 @@ void * inform(void * a)
 	  select(r_fd + 1, &fds, NULL, NULL, &timeout);
 	  timeout.tv_sec = 1;
 	  timeout.tv_usec = 0;
-	  if (FD_ISSET(r_fd, &fds) && (len = read(r_fd, buf, buf_size)) > 0) {
+	  if (FD_ISSET(r_fd, &fds) && (len = read(r_fd, buf, 1)) > 0) {
 	       if (buf[0] == INITGAME) {
-		    send_init(con, (InitStruct *) (buf+1));
+		    read(r_fd, &buf[1], sizeof(InitStruct));
+		    send_init(con, (InitStruct *) (buf + 1));
 	       }
 	       else if (buf[0] == UPDATEGAME) {
-		    send_update(con, (UpdateStruct *) (buf+1));
+		    read(r_fd, &buf[1], sizeof(UpdateStruct));
+		    us = (UpdateStruct *) &buf[1];
+		    read(r_fd, &buf[sizeof(UpdateStruct) + 1], 4 * us->len);
+		    send_update(con, (UpdateStruct *) (buf + 1));
 	       }
 	       else if (buf[0] == ENDGAME) {
-		    send_endgame(con, (EndGameStruct *) (buf+1));
+		    read(r_fd, &buf[1], sizeof(EndGameStruct));
+		    send_endgame(con, (EndGameStruct *) (buf + 1));
 	       }
+	  }
+	  else if (FD_ISSET(r_fd, &fds) && len == 0) {
+	       break;
 	  }
 	  else {
 	       FD_SET(r_fd, &fds);
 	  }
      }
-     printf("algo inform\n");
-
+     printf("closing informer\n");
      mm_disconnect(con);
      pthread_exit(0);
 }
@@ -235,7 +242,7 @@ int main(int argc, char * argv[])
      QueryStruct * qs;
      UpdateStruct  * us;
      EndGameStruct es;
-     InitStruct is;
+     InitStruct * is;
      int players;
      ClientPthreads * pths[10];
      int64_t cli_i = 0;
@@ -335,10 +342,7 @@ int main(int argc, char * argv[])
      }
      /* create minefield */
      minef = create_minefield(cols, rows, mines, players);
-     is.cols = cols;
-     is.rows = rows;
-     is.mines = mines;
-     is.players = cli_i;
+     
      char * data_struct;
      int data_size;
      data_struct = malloc(sizeof(UpdateStruct) + 4 * cols * rows + 1);
@@ -347,13 +351,15 @@ int main(int argc, char * argv[])
 	  return -1;
      }
      data_struct[0] = INITGAME;
-     memcpy(data_struct+1, (char *) &is,sizeof(InitStruct));
+     is = &data_struct[1];
+     is->cols = cols;
+     is->rows = rows;
+     is->mines = mines;
+     is->players = cli_i;
      /* send game info to clients */
      for (int i = 0; i < cli_i; i++) {
-	  is.player_id = i;
+	  is->player_id = i;
 	  write(pths[i]->w_fd, data_struct, sizeof(InitStruct) + 1);
-	  printf("b\n");
-
      }
 
      while (!q) {
@@ -438,12 +444,13 @@ int main(int argc, char * argv[])
 		    msg_type = ENDGAME;
 		    data_struct[0] = msg_type;
 		    memcpy(&data_struct[1], &es, sizeof(EndGameStruct));
-		    for (int i = 0; i < us->len;i++) {
+		    
+		    for (int i = 0; i < cli_i;i++) {
 			 if (pths[i] == NULL) {
 			      continue;
 			 }
-			 write(pths[i]->w_fd, &msg_type, 1);
-			 write(pths[i]->w_fd, (char *) &es, sizeof(EndGameStruct));
+			 
+			 write(pths[i]->w_fd, data_struct, sizeof(EndGameStruct) + 1);
 		    }
 		    q = TRUE;
 	       }
