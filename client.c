@@ -224,7 +224,7 @@ int main(int argc, char *argv[])
      int8_t selret;
      char * data_struct;
      int data_size;
-     
+
      timeout.tv_sec = 1;
      timeout.tv_usec = 0;
 
@@ -251,7 +251,7 @@ int main(int argc, char *argv[])
 	  return 0;
      }
      printf("suscrito.\n");
-     selret = receive_init(con, &is, &timeout, 5); 
+     selret = receive_init(con, &is, &timeout, 5);
      if (selret == INITGAME) {
 	  printf("cols: %d rows: %d mines: %d \n", (int) is->cols, (int) is->rows, (int) is->mines);
      }
@@ -263,7 +263,7 @@ int main(int argc, char *argv[])
 	  printf("se produjo un error\n");
 	  return 0;
      }
-     
+
      int len, max_size = 100;
      int64_t c, win_h, win_w,  mb_size_1 = 0, mb_size_2 = 0, count = 0, auxi = 0, auxj = 0, marks = 0;
      int8_t auxx, auxy, auxn, auxp;
@@ -277,7 +277,7 @@ int main(int argc, char *argv[])
      int highscores_on = 0;
      int8_t msg_type, x, y;
      EndGameStruct * es;
-     
+
      cols = is->cols;
      rows = is->rows;
      mines= is->mines;
@@ -477,7 +477,7 @@ int main(int argc, char *argv[])
 	  default:
 	       break;
 	  }
-	  
+
 	  msg_type = receive_update(con, data_struct, data_size, &select_timeout);
 	  if (msg_type == UPDATEGAME) {
 	       us = (UpdateStruct *) &data_struct[1];
@@ -501,7 +501,7 @@ int main(int argc, char *argv[])
 			      mines--;
 			      utiles++;
 			 }
-			 
+
 			 mine_buffer[auxx][auxy][0] = auxn;
 			 mine_buffer[auxx][auxy][1] = us->tiles[i].player;
 			 draw_tile(win, auxy,auxx,auxn, us->tiles[i].player + 3);
@@ -527,24 +527,19 @@ int main(int argc, char *argv[])
 	       }
 	       update_scores(win_side, player_scores, players, utiles, total_tiles);
 	       wmove(win_side, 5 + es->players + 1, 1);
-	       if (es->winner_id == player_id) {
-		    wprintw(win_side, "YOU WON!");
+
+         if (es->winner_id == player_id) {
+          win_flag = 1;
 	       }
 	       else {
-		    wprintw(win_side, "YOU LOSE!");
+		        loose_flag= 1;
 	       }
-	       wmove(win_side, 5 + es->players + 2, 1);
-	       wprintw(win_side, "PRESS ENTER TO EXIT");
-	       wrefresh(win_side);
-	       timeout(-1);
-	       while(getch()!='\n');
-	       cli_exit("termino el juego\n");
 	  }
 	  /*else if (mm_select(con, &select_timeout) > 0) {
 	       mm_read(con, (char *) us, us_size);
 	       count = us->len;
 	       if (count > 0) {
-		    
+
 		    for(int i = 0; i < count; i++){
 			 auxx = us->tiles[i].x;
 			 auxy = us->tiles[i].y;
@@ -584,9 +579,9 @@ int main(int argc, char *argv[])
 		    update_scores(win_side, player_scores, players, utiles, total_tiles);
 	       }
 	       }*/
-	  
-	       
-	  
+
+
+
 
 	  current_utc_time(&end_frame_time);
 	  //clock_gettime(CLOCK_REALTIME, &end_frame_time);
@@ -596,60 +591,63 @@ int main(int argc, char *argv[])
      }
      /* enable blocking getch() */
      timeout(-1);
-     if (win_flag) {
-	  wmove(win_side, 5 + players, 1);
-	  wprintw(win_side, "YOU WIN!");
-	  wrefresh(win_side);
-	  getch();
-     }
-     else if (loose_flag) {
-	  wmove(win_side, 5 + players, 1);
-	  wprintw(win_side, "YOU LOOSE!");
-	  wrefresh(win_side);
-	  getch();
-     }
-     wclear(win_side);
-     win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
-     wmove(win_side,1,1);
-     wprintw(win_side,"Highscores:");
-     for(i = 2;i <5 ;i++){
-       wmove(win_side,i,1);
-       wprintw(win_side,"PEDRITO 5500");//print scores
-     }
-      wrefresh(win_side);
-     if( 1 /*win_flag  && tu score es mejor que alguno de los 10 mejores*/){
-       char nombre[100] = " ";
-       int j = 0;
-       wmove(win_side,i+1,1);
-       wprintw(win_side,"Su score es : ");
-       wmove(win_side,i+2,1);
-       wprintw(win_side,"Ingrese un nombre de ");
-       wmove(win_side,i+3,1);
-       wprintw(win_side,"hasta 10 caracteres:");
-       wmove(win_side,i+4,1);
-       wrefresh(win_side);
-       while((c=toupper(getch())) != '\n' ){
-         if(c == 263 && j>0){//backspace
-           wmove(win_side,i+4,j);
-           wprintw(win_side," ");
-           wmove(win_side,i+4,j--);
-           wrefresh(win_side);
-         }
-         else if(j<10 && c != 263){
-         nombre[j++]=c;
-          wprintw(win_side,"%c",c);
-          wrefresh(win_side);
-          }
-        }
-         wmove(win_side,i+5,1);
-         wprintw(win_side,"Se ha agregado ",nombre);
-         wmove(win_side,i+6,1);
-         wprintw(win_side,"correctamente! ",nombre);
-         wrefresh(win_side);
-      }
-      getch();
 
-     cli_exit(0);
+     if(win_flag){
+       wclear(win_side);
+       win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
+       wmove(win_side,1,1);
+       wprintw(win_side, "YOU WON!");
+        wmove(win_side,3,1);
+        wprintw(win_side,"Highscores:");
+        for(i = 4;i <6 ;i++){
+          wmove(win_side,i,1);
+          wprintw(win_side,"PEDRITO 5500");//print scores
+        }
+        wrefresh(win_side);
+        if( 1 /*win_flag  && tu score es mejor que alguno de los 10 mejores*/){
+          char nombre[100] = " ";char d;
+          int j = 0;
+          wmove(win_side,i+1,1);
+          wprintw(win_side,"Su score es : ");
+          wmove(win_side,i+3,1);
+          wprintw(win_side,"Ingrese un nombre de ");
+          wmove(win_side,i+4,1);
+          wprintw(win_side,"hasta 10 caracteres:");
+          wmove(win_side,i+6,1);
+          wrefresh(win_side);
+          while((d=toupper(getch())) != '\n' ){
+            if(d == 7 && j>0){//backspace
+              wmove(win_side,i+6,j);
+              wprintw(win_side," ");
+              wmove(win_side,i+6,j--);
+              wrefresh(win_side);
+            }
+            else if(j<10 && d != 7){
+            nombre[j++]=d;
+             wprintw(win_side,"%c",d);
+             wrefresh(win_side);
+             }
+           }
+            wmove(win_side,i+8,1);
+            wprintw(win_side,"Se ha agregado ",nombre);
+            wmove(win_side,i+9,1);
+            wprintw(win_side,"correctamente! ",nombre);
+            wmove(win_side, i+11, 1);
+         }else{
+           wmove(win_side,i+1,1);
+         }
+        wprintw(win_side, "PRESS ENTER TO EXIT");
+        wrefresh(win_side);
+     }else{
+       wprintw(win_side, "YOU LOSE!");
+       wmove(win_side, 5 + es->players + 2, 1);
+       wprintw(win_side, "PRESS ENTER TO EXIT");
+     }
+
+     wrefresh(win_side);
+     timeout(-1);
+     while(getch()!='\n');
+     cli_exit("termino el juego\n");
      return 0;
 }
 
