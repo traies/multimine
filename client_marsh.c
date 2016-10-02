@@ -5,7 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#define MAX_BUF_SIZE   2048
+#define MAX_BUF_SIZE   20000
 static int64_t query_marsh(char buf[], const QueryStruct * qs)
 {
      if (qs == NULL) {
@@ -165,5 +165,6 @@ int8_t receive_update(Connection * c, char * data_struct, int64_t size, struct t
      else {
 	  ret = ERROR;
      }
+     
      return ret;
 }

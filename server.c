@@ -29,7 +29,7 @@
 #define COLS 50
 #define ROWS 20
 #define MINES 100
-#define BUF_SIZE 20000
+#define BUF_SIZE 50000
 #define DEFAULT_PLAYERS 1
 
 typedef struct ClientPthreads
@@ -307,6 +307,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 			      reset_score(minef, i);
 			      close(pths[i]->w_fd);
 			      FD_CLR(pths[i]->r_fd, &r_set);
+			      free(pths[i]);
 			      pths[i] = NULL;
 			 }
 			 
@@ -327,7 +328,6 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 		    data_size = sizeof(UpdateStruct) + 4 * us->len;
 		    memcpy(&data_struct[1], us, data_size);
 		    for (int i = 0; i < players; i++) {
-			 
 			 if (pths[i] == NULL) {
 			      continue;
 			 }
@@ -352,7 +352,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 	  }
      }
      /* close pthreads */
-     /*
+     
      for (int i = 0; i < players; i++) {
 	  if (pths[i] == NULL) {
 	       continue;
@@ -362,7 +362,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 	  pths[i]->info_killflag = true;
 	  pthread_join(pths[i]->p_info, NULL);
      }
-     */
+     
      free_minefield(minef);
      return 0;
      
@@ -405,8 +405,15 @@ int64_t host_game(ClientPthreads * pths[8], int64_t players, int64_t rows, int64
      free(data_struct);
      
      /* attend requests */
+     printf("c\n");
      ret = attend_requests(minef, rows * cols, pths , players);
-
+     for (int i = 0; i < players; i++) {
+	  if (pths[i] == NULL) {
+	       continue;
+	  }
+	  free(pths[i]);
+	  pths[i] = NULL;
+     }
      return ret;
 }
      
@@ -499,157 +506,40 @@ int main(int argc, char * argv[])
 
 
      /* open connection */
-
       char * addr = configuration("config",mm_commtype(),1);
 
-      lp = mm_listen(addr);
-      if (lp == NULL) {
-	   printf("fracaso\n");
-	   return 0;
+      while (true) {
+	   count = 0;
+	   lp = mm_listen(addr);
+	   if (lp == NULL) {
+		printf("fracaso\n");
+		return 0;
+	   }
+
+	   /* wait for connections */
+	   while ( count < players && (c = mm_accept(lp)) != NULL) {
+		/* established conection on c, needs to create thread */
+		printf("conexion establecida. Creando thread.\n");
+		add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c, sizeof(QueryStruct) + 1, us_size);
+		printf("thread creado..\n");
+		// mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
+		count++;
+	   }
+	   
+	   mm_disconnect_listener(lp);
+	   
+	   lp = NULL;
+
+	   if (count < players) {
+		/* connections failed */
+		srv_exit(NULL, 0);
+	   }
+	   
+	   host_game(pths, players, rows, cols, mines);
       }
-
-     /* wait for connections */
-     while ( count < players && (c = mm_accept(lp)) != NULL) {
-	  /* established conection on c, needs to create thread */
-	  printf("conexion establecida. Creando thread.\n");
-	  add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c, sizeof(QueryStruct) + 1, us_size);
-	  printf("thread creado..\n");
-	  // mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
-	  count++;
-     }
-
-     mm_disconnect_listener(lp);
-     lp = NULL;
-
-     if (count < players) {
-	  /* connections failed */
-	  srv_exit(NULL, 0);
-     }
-
-     host_game(pths, players, rows, cols, mines);
      return 0;
 }
-
-/* create minefield */
-     /*  minef = create_minefield(cols, rows, mines, players);
-     
-     char * data_struct;
-     int data_size;
-
-     /*
-     data_struct = malloc(sizeof(UpdateStruct) + 4 * cols * rows + 1);
-     if (!data_struct) {
-	  printf("memory error\n");
-	  return -1;
-     }
-
-     data_struct[0] = INITGAME;
-     is = &data_struct[1];
-     is->cols = cols;
-     is->rows = rows;
-     is->mines = mines;
-     is->players = cli_i;
-     /* send game info to clients */
-     /*for (int i = 0; i < cli_i; i++) {
-	  is->player_id = i;
-	  write(pths[i]->w_fd, data_struct, sizeof(InitStruct) + 1);
-     }
-     
-
-     while (!q) {
-
-     */	  /* read() */
-/*	  sflag = select(attr_nfds, &r_set, NULL, NULL, &timeout);
-	  timeout.tv_sec = 10;
-
-	  if (sflag == 0) {
-	       for (int i = 0; i < cli_i; i++) {
-		    FD_SET(pths[i]->r_fd, &r_set);
-	       }
-	       printf("listening...\n");
-	  }
-
-	  if (sflag < 0) {
-	       /* timeout expired*/
-/*	       srv_exit(pths,cli_i);
-	  }
-	  else if (sflag > 0){
-	       for(int i = 0; i < cli_i; i++) {
-		    if (pths[i] == NULL) {
-			 continue;
-		    }
-		    if (pths[i]->attr_killflag) {
-			 printf("kill\n");
-			 pths[i]->info_killflag = TRUE;
-			 printf("kill\n");
-
-			 pths[i] = NULL;
-
-			 //	 reset_score(m, i);
-		    }
-		    else if (FD_ISSET(pths[i]->r_fd, &r_set)) {
-			 /* read fd */
-/*			 if (read(pths[i]->r_fd,data_struct,max_size) > 0) {
-			      if (data_struct[0] == QUERYMINE) {
-				   qs = (QueryStruct *) &data_struct[1];
-				   if (update_minefield(minef, qs->x, qs->y, i, us) > 0) {
-					u_flag = 1;
-					//    sprintf(msg,"x: %d y: %d player:%d",(int)qs.x,(int)qs.y, (int) i);
-					//	   mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
-				   }
-			      }
-			 }
-		    }
-		    else {
-			 FD_SET(pths[i]->r_fd, &r_set);
-		    }
-	       }
-
-	       /* send to all
-
-		  while(!FD_EMPTY(&w_set)) {
-	             select(info_nfds, NULL, &w_set, NULL, &timeout);
-             }
-	       */
-/*	       endflag = check_win_state(minef, &es);
-	       if (u_flag){
-		    
-		    
-			 //	 sprintf(msg,"unveiled x:%d y:%d n:%d player:%d ", us->tiles[i].x, us->tiles[i].y, us->tiles[i].nearby, us->tiles[i].player);
-				 //	mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
-		    
-		    update_scores(minef, us);
-		    msg_type = UPDATEGAME;
-		    data_struct[0] = msg_type;
-		    data_size = sizeof(UpdateStruct) + 4 * us->len;
-		    memcpy(&data_struct[1], us, data_size);
-		    for (int i = 0; i < cli_i; i++) {
-			 if (pths[i] == NULL) {
-			      continue;
-			 }
-			 //write(pths[i]->w_fd, &msg_type, 1);
-			 
-			 write(pths[i]->w_fd, data_struct, data_size + 1);
-		    }
-		    us->len = 0;
-		    u_flag = 0;
-	       }
-	       if (endflag) {
-		    msg_type = ENDGAME;
-		    data_struct[0] = msg_type;
-		    memcpy(&data_struct[1], &es, sizeof(EndGameStruct));
-		    
-		    for (int i = 0; i < cli_i;i++) {
-			 if (pths[i] == NULL) {
-			      continue;
-			 }
-			 
-			 write(pths[i]->w_fd, data_struct, sizeof(EndGameStruct) + 1);
-		    }
-		    q = TRUE;
-	       }
-	  }
-     }
+/*
 
      printf("game ended.\n");
      getchar();

@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#define MAX_BUF_SIZE 2048
+#define MAX_BUF_SIZE 20000
 
 static int64_t init_marsh(char buf[], const InitStruct * is)
 {

@@ -278,7 +278,8 @@ int main(int argc, char *argv[])
      int highscores_on = 0;
      int8_t msg_type, x, y;
      EndGameStruct * es;
-
+     void * t_aux;
+     
      cols = is->cols;
      rows = is->rows;
      mines= is->mines;
@@ -303,9 +304,12 @@ int main(int argc, char *argv[])
      }
 
      do{
-	  mine_buffer[auxi] = malloc(sizeof(int64_t[2]) * (rows));
-     } while (mine_buffer[auxi] && auxi++ < (cols));
-
+	  t_aux = mine_buffer[auxi] = malloc(sizeof(int64_t[2]) * (rows));
+     } while (t_aux && mine_buffer[auxi] && auxi++ < (cols));
+     if (!t_aux) {
+	  printf("fracaso en %d \n", auxi);
+	  return -1;
+     }
      for (int i = 0; i < (cols); i++) {
 	  for (int j = 0; j < (rows); j++) {
 	       mine_buffer[i][j][0] = -1;
@@ -478,8 +482,9 @@ int main(int argc, char *argv[])
 	  default:
 	       break;
 	  }
-
+	  
 	  msg_type = receive_update(con, data_struct, data_size, &select_timeout);
+	  
 	  if (msg_type == UPDATEGAME) {
 	       us = (UpdateStruct *) &data_struct[1];
 	       count = us->len;
@@ -489,7 +494,6 @@ int main(int argc, char *argv[])
 			 auxy = us->tiles[i].y;
 			 auxn = us->tiles[i].nearby;
 			 auxp = us->tiles[i].player;
-
 			 if (mine_buffer[auxx][auxy][0] == 10) {
 			      marks--;
 			      update_marks(win_side,marks);
@@ -502,10 +506,10 @@ int main(int argc, char *argv[])
 			      mines--;
 			      utiles++;
 			 }
-
 			 mine_buffer[auxx][auxy][0] = auxn;
 			 mine_buffer[auxx][auxy][1] = us->tiles[i].player;
 			 draw_tile(win, auxy,auxx,auxn, us->tiles[i].player + 3);
+			 
 		    }
 
 		    us->len = 0;
