@@ -91,10 +91,13 @@ int8_t receive_init(Connection * c,InitStruct ** data_struct, struct timeval * t
 	  taux.tv_sec = timeout->tv_sec;
 	  taux.tv_usec = timeout->tv_usec;
      }
-     while (i < tries && (read = mm_select(c,timeout) ) < 0) {
+     while (i < tries && (read = mm_select(c,timeout) ) <= 0) {
+	  if (read == 0) {
+	       
+	       i++;
+	  }
 	  timeout->tv_sec = taux.tv_sec;
 	  timeout->tv_usec= taux.tv_usec;
-	  i++;
      }
      if (i < tries) {
 	  ret = mm_read(c, buf, MAX_BUF_SIZE);
