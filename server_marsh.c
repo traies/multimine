@@ -44,7 +44,6 @@ static int64_t update_marsh(char buf[], const UpdateStruct * us)
 	  *buf++ = us->tiles[i].nearby;
 	  *buf++ = us->tiles[i].player;
      }
-     printf("size: %d, %d\n", (int) base[0], size);
      return size;
 }
 

@@ -294,6 +294,7 @@ int main(int argc, char *argv[])
      players = is->players;
      player_id = is->player_id;
      free(is);
+
      us_size = sizeof(UpdateStruct) + cols * rows * 4;
      us = malloc(us_size);
      data_size = sizeof(UpdateStruct) + cols * rows * 4 + 1;
@@ -411,16 +412,6 @@ int main(int argc, char *argv[])
 	       break;
 
     case 'H':
-     	    if(highscores_on){
-            wclear(win_side);
-            win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
-            update_mines(win_side, mines);
-            update_utiles(win_side, utiles);
-            update_marks(win_side, marks);
-             update_scores(win_side, player_scores, players, utiles, total_tiles);
-             highscores_on = 0;
-          }else{
-            highscores_on = 1;
             wclear(win_side);
             win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
             wmove(win_side,1,1);
@@ -429,9 +420,18 @@ int main(int argc, char *argv[])
               wmove(win_side,i,1);
               wprintw(win_side,"PEDRITO 5500");//print scores
             }
-             wrefresh(win_side);
-
-          }
+            wmove(win_side,i+1,1);
+            wprintw(win_side,"Presione H para volver");
+            wrefresh(win_side);
+            while(toupper(getch())!='H');
+            wclear(win_side);
+            win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
+            update_mines(win_side, mines);
+            update_utiles(win_side, utiles);
+            update_marks(win_side, marks);
+            update_scores(win_side, player_scores, players, utiles, total_tiles);
+            wmove(win,x,y);
+            wrefresh(win);
      	     break;
 	  case ' ':
 	       if (mine_buffer[x-1][y-1][0] < 0 || mine_buffer[x-1][y-1][0] == 10) {
@@ -530,6 +530,7 @@ int main(int argc, char *argv[])
 		    player_scores[i][0] = us->player_scores[i][0];
 		    player_scores[i][1] = us->player_scores[i][1];
 	       }
+	       update_scores(win_side, player_scores, players, utiles, total_tiles);
 	  }
 	  else if (msg_type == DISCONNECT) {
 	       cli_exit("desconectado\n");
@@ -582,6 +583,9 @@ int main(int argc, char *argv[])
 	       }
 	       }*/
 	  
+	       
+	  
+
 	  current_utc_time(&end_frame_time);
 	  //clock_gettime(CLOCK_REALTIME, &end_frame_time);
 	  time_diff(&diff_frame_time,&init_frame_time,&end_frame_time);
