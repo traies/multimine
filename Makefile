@@ -1,7 +1,7 @@
 CC=gcc  -std=c99
 LIBS=-lncurses -pthread
 
-COMMON_SRC= queue.c commsS_TCP.c configurator.c
+COMMON_SRC= queue.c commsS_TCP.c configurator.c server_marsh.c client_marsh.c msg_structs.c
 COMMON_OBJ= $(COMMON_SRC:.c=.o)
 CLIENT_SRC= client.c
 CLIENT_OBJ= $(CLIENT_SRC:.c=.o)

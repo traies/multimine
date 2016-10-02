@@ -1,0 +1,121 @@
+#include <stdint.h>
+#include <msg_structs.h>
+#include <comms.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#define MAX_BUF_SIZE 2048
+
+static int64_t init_marsh(char buf[], const InitStruct * is)
+{
+     int64_t a;
+     if (is == NULL) {
+	  return -1;
+     }
+     *buf++ = INITGAME;
+     memcpy(buf, &(is->rows), sizeof(int64_t));
+     memcpy(&a,buf,sizeof(int64_t));
+     buf += sizeof(int64_t);
+     memcpy(buf, &(is->cols), sizeof(int64_t));
+     buf += sizeof(int64_t);
+     memcpy(buf, &(is->mines), sizeof(int64_t));
+     buf += sizeof(int64_t);
+     *buf++ = is->player_id;
+     *buf++ = is->players;
+     return sizeof(InitStruct) + 1;
+}
+
+static int64_t update_marsh(char buf[], const UpdateStruct * us)
+{
+     int64_t size = 1 + us->len * 4 + sizeof(UpdateStruct);
+     if (MAX_BUF_SIZE < size) {
+	  return -1;
+     }
+     *buf++ = UPDATEGAME;
+     memcpy(buf, (char *) &us->len, sizeof(int64_t));
+     buf += sizeof(int64_t);
+     *buf++ = us->players;
+     memcpy(buf,us->player_scores, sizeof(int64_t[8][2]));
+     buf += sizeof(int64_t[8][2]);
+     for (int i = 0; i < us->len; i++) {
+	  *buf++ = us->tiles[i].x;
+	  *buf++ = us->tiles[i].y;
+	  *buf++ = us->tiles[i].nearby;
+	  *buf++ = us->tiles[i].player;
+     }
+     return size;
+}
+
+static int64_t endgame_marsh(char buf[], const EndGameStruct * es)
+{
+     *buf++ = ENDGAME;
+     *buf++ = es->players;
+     *buf++ = es->winner_id;
+     memcpy(buf, es->player_scores, sizeof(int64_t[8]));
+     return 1 + sizeof(EndGameStruct);
+}
+
+static int64_t send(Connection * c, void * data, int64_t (*marsh)(void*, const void*))
+{
+     int len;
+     static char buf[MAX_BUF_SIZE];
+     if (data == NULL || c == NULL) {
+	  return -1;
+     }
+     len = marsh(buf, data);
+     return mm_write(c, buf, len);
+}
+
+int64_t send_init(Connection * c,  InitStruct * is)
+{
+     return send(c, (void *) is, (int64_t (*) (void *, const void *))init_marsh);
+}
+
+int64_t send_update(Connection * c, UpdateStruct * us)
+{
+     return send(c,  (void *) us, (int64_t (*) (void *, const void *))update_marsh);
+}
+
+int64_t send_endgame(Connection * c, EndGameStruct * es)
+{
+     return send(c, (void *) es, (int64_t (*) (void *, const void *)) endgame_marsh);
+}
+
+int64_t query_unmarsh(char data_struct[], char buf[])
+{
+     QueryStruct * qs = (QueryStruct *) &data_struct[1];
+     data_struct[0] = buf[0];
+     memcpy(&qs->x, &buf[1], 1); 
+     memcpy(&qs->y, &buf[2], 1);
+     return sizeof(QueryStruct) + 1;
+}
+
+int8_t receive(Connection * c, char * data_struct, int64_t size, struct timeval * timeout)
+{
+     static char * buf;
+     int64_t read, ret;
+     if (buf == NULL) {
+	  buf = malloc(size);
+	  if (buf == NULL) {
+	       return ERROR;
+	  }
+     }
+     if ( (read = mm_select(c,timeout) ) > 0) {
+	  ret = mm_read(c, buf, size);
+     }
+     else {
+	  return 0;
+     }
+     if (ret == 0) {
+	  return -1;
+     }
+     if (buf[0] == QUERYMINE) {
+	  ret = query_unmarsh(data_struct, buf);
+     }
+     else {
+	  ret = 0;
+     }
+     return ret;
+}
+
+	      

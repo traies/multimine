@@ -23,6 +23,7 @@
 #include <unistd.h>
 #include <configurator.h>
 #include <msg_structs.h>
+#include <client_marsh.h>
 
 #define min(a,b)    ((a < b)? a:b)
 #define max(a,b)    ((a < b)? b:a)
@@ -225,8 +226,14 @@ int main(int argc, char *argv[])
      int64_t player_ids[8];
      QueryStruct qs;
      UpdateStruct  * us;
-     InitStruct is;
+     InitStruct *is;
      Connection * con;
+     struct timeval timeout;
+     int8_t selret;
+     void * data_struct;
+     
+     timeout.tv_sec = 1;
+     timeout.tv_usec = 0;
 
      /*
      if (argc <=1) {
@@ -252,16 +259,21 @@ int main(int argc, char *argv[])
 	  return 0;
      }
      printf("suscrito.\n");
-
-     if ( mm_read(con, (char *) &is, sizeof(InitStruct)) > 0) {
-	  printf("cols: %d rows: %d mines: %d \n", (int) is.cols, (int) is.rows, (int) is.mines);
+     selret = receive_init(con, &is, &timeout, 5); 
+     if (selret == INITGAME) {
+	  printf("cols: %d rows: %d mines: %d \n", (int) is->cols, (int) is->rows, (int) is->mines);
+     }
+     else if (selret == NOREAD){
+	  printf("el tiempo de espera expiro.\n");
+	  return 0;
      }
      else {
-	  printf("no se inicio.\n");
+	  printf("se produjo un error\n");
+	  return 0;
      }
+     
      int len, max_size = 100;
-
-     int64_t c, x, y, win_h, win_w,  mb_size_1 = 0, mb_size_2 = 0, count = 0, auxi = 0, auxj = 0, marks = 0;
+     int64_t c, win_h, win_w,  mb_size_1 = 0, mb_size_2 = 0, count = 0, auxi = 0, auxj = 0, marks = 0;
      int8_t auxx, auxy, auxn, auxp;
      int64_t utiles = 0, total_tiles;
      int8_t win_flag = FALSE, loose_flag = FALSE, quit_flag = FALSE;
@@ -271,13 +283,14 @@ int main(int argc, char *argv[])
      WINDOW * win, * win_side;
      int i;
      int highscores_on = 0;
+     int8_t msg_type, x, y;
 
-     cols = is.cols;
-     rows = is.rows;
-     mines= is.mines;
-     players = is.players;
-     player_id = is.player_id;
-
+     cols = is->cols;
+     rows = is->rows;
+     mines= is->mines;
+     players = is->players;
+     player_id = is->player_id;
+     free(is);
      us_size = sizeof(UpdateStruct) + cols * rows * 4;
      us = malloc(us_size);
      mine_buffer = malloc(sizeof( int64_t * [2]) * (cols));
@@ -381,7 +394,11 @@ int main(int argc, char *argv[])
 	       }
 	       qs.x = x-1;
 	       qs.y = y-1;
+	       send_query(con, &qs);
+
+	       /*
 	       mm_write(con, (char *) &qs, sizeof(QueryStruct));
+	       */
 	       break;
 
     case 'H':
@@ -463,9 +480,10 @@ int main(int argc, char *argv[])
 	  default:
 	       break;
 	  }
-
-	  if (mm_select(con, &select_timeout) > 0) {
-	       mm_read(con, (char *) us, us_size);
+	  /*
+	  msg_type = receive_update(con, &data_struct, &select_timeout);
+	  if (msg_type == UPDATEGAME) {
+	       us = (UpdateStruct *) data_struct;
 	       count = us->len;
 	       if (count > 0) {
 		    for(int i = 0; i < count; i++){
@@ -503,9 +521,60 @@ int main(int argc, char *argv[])
 		    player_scores[i][0] = us->player_scores[i][0];
 		    player_scores[i][1] = us->player_scores[i][1];
 	       }
-         if(!highscores_on)
-	       update_scores(win_side, player_scores, players, utiles, total_tiles);
 	  }
+	  else if (msg_type == DISCONNECT) {
+	       printf("desconectado\n");
+	       cli_exit();
+	  }
+	  else if (msg_type == ENDGAME) {
+	       printf("termino el juego\n");
+	       cli_exit();
+	  }
+	  else */if (mm_select(con, &select_timeout) > 0) {
+	       mm_read(con, (char *) us, us_size);
+	       count = us->len;
+	       if (count > 0) {
+		    
+		    for(int i = 0; i < count; i++){
+			 auxx = us->tiles[i].x;
+			 auxy = us->tiles[i].y;
+			 auxn = us->tiles[i].nearby;
+			 auxp = us->tiles[i].player;
+
+			 if (mine_buffer[auxx][auxy][0] == 10) {
+			      marks--;
+			      update_marks(win_side,marks);
+			      wmove(win,y,x);
+			 }
+			 if (auxn == 9) {
+			      if (auxp == player_id) {
+				   loose_flag = TRUE;
+			      }
+			      mines--;
+			      utiles++;
+			 }
+			 else {
+			      player_scores[player_ids[auxp]][1]++;
+			 }
+			 mine_buffer[auxx][auxy][0] = auxn;
+			 mine_buffer[auxx][auxy][1] = us->tiles[i].player;
+			 draw_tile(win, auxy,auxx,auxn, us->tiles[i].player + 3);
+		    }
+
+		    us->len = 0;
+		    wmove(win,y,x);
+		    utiles-=count;
+		    update_utiles(win_side, utiles);
+	       }
+	       for (int i = 0; i < us->players; i++) {
+		    player_scores[i][0] = us->player_scores[i][0];
+		    player_scores[i][1] = us->player_scores[i][1];
+	       }
+	       if(!highscores_on) {
+		    update_scores(win_side, player_scores, players, utiles, total_tiles);
+	       }
+	  }
+	  
 	  current_utc_time(&end_frame_time);
 	  //clock_gettime(CLOCK_REALTIME, &end_frame_time);
 	  time_diff(&diff_frame_time,&init_frame_time,&end_frame_time);

@@ -14,7 +14,7 @@
 #include "configurator.h"
 #include <msg_structs.h>
 
-
+#include <server_marsh.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/select.h>
@@ -438,14 +438,14 @@ void sort_scores(int64_t (* player_scores)[2], int64_t players)
      return;
 }
 
-int8_t check_win_state(int64_t (* pscores)[2], int64_t players, int64_t utiles )
+int8_t check_win_state(int64_t (* pscores)[2], int64_t players, int64_t pleft, int64_t utiles )
 {
      int8_t win_flag;
-     if (utiles <= 0) {
+     if (utiles <= 0 || pleft == 0) {
 	  return TRUE;
      }
      if (players > 1) {
-	  if (pscores[0][1] > utiles + pscores[1][1]) {
+	  if (pscores[0][1] > utiles + pscores[1][1] || pleft == 1) {
 	       return TRUE;
 	  }
      }
@@ -455,14 +455,14 @@ int8_t check_win_state(int64_t (* pscores)[2], int64_t players, int64_t utiles )
 int8_t update_scores(Minefield * m, UpdateStruct * us )
 {
      int64_t (* player_scores)[2];
-     int64_t players;
+     int64_t players, pleft;
 
      if (m == NULL || us == NULL) {
 	  return;
      }
      player_scores = m->player_scores;
      players = m->players;
-
+     pleft = m->players_left;
      sort_scores(player_scores, players);
      update_scores_to_ids(m->player_ids, player_scores, players);
 
@@ -471,7 +471,7 @@ int8_t update_scores(Minefield * m, UpdateStruct * us )
 	  us->player_scores[i][1] = player_scores[i][1];
      }
      us->players = players;
-     return check_win_state(player_scores, players, m->unk_tiles);
+     return check_win_state(player_scores, players, pleft, m->unk_tiles);
 }
 
 
@@ -555,6 +555,9 @@ void srv_exit(ClientPthreads * pths[], int cli_i)
       }
       for (int i = 0; i < cli_i; i++) {
 	   /* killing threads */
+	   if (pths[i] == NULL) {
+		continue;
+	   }
 	   pths[i]->attr_killflag = TRUE;
 	   pthread_join(pths[i]->p_attr, NULL);
 	   pths[i]->info_killflag = TRUE;
@@ -594,15 +597,12 @@ void * attend(void * a)
      free(a);
      /* expects blocking read */
      while (!*killflag) {
-	  if ( mm_select(con, &timeout) < 0) {
-	       continue;
-	  }
-	  else if ((len = mm_read(con, buf, buf_size)) > 0) {
+	  if ((len = receive(con, buf, buf_size, &timeout)) > 0) {
 	       printf("len %d\n", len);
 	       write(w_fd, buf, len);
 	  }
-	  else if (len == 0) {
-	       printf("len: 0\n");
+	  else if (len == -1) {
+	       printf("disconnect \n");
 	       break;
 	  }
      }
@@ -639,7 +639,18 @@ void * inform(void * a)
 	  timeout.tv_sec = 1;
 	  timeout.tv_usec = 0;
 	  if (FD_ISSET(r_fd, &fds) && (len = read(r_fd, buf, buf_size)) > 0) {
-	       mm_write(con, buf, len);
+	       /*if (buf[0] == INITGAME) {
+		    send_init(con, (InitStruct *) (buf+1));
+	       }
+	       else if (buf[0] == UPDATEGAME) {
+		    send_update(con, (UpdateStruct *) (buf+1));
+	       }
+	       else if (buf[0] == ENDGAME) {
+		    send_endgame(con, (EndGameStruct *) (buf+1));
+	       }
+	       else {*/
+		    mm_write(con, buf, len);
+		    //}
 	  }
 	  else {
 	       FD_SET(r_fd, &fds);
@@ -713,15 +724,15 @@ int main(int argc, char * argv[])
      fd_set r_set, w_set;
      struct timeval timeout;
      int count = 0;
-     QueryStruct qs;
+     QueryStruct * qs;
      UpdateStruct  * us;
-     EndGameStruct * es;
+     EndGameStruct es;
      InitStruct is;
      int players;
      ClientPthreads * pths[10];
      int64_t cli_i = 0;
      Listener * lp = NULL;
-     int8_t endflag = FALSE;
+     int8_t endflag = FALSE, msg_type;
 
 
      if (argc > 1) {
@@ -732,10 +743,8 @@ int main(int argc, char * argv[])
      }
      us_size = cols * rows * 4 + sizeof(UpdateStruct);
      us = malloc(us_size);
-     es_size = players * sizeof(int64_t) + sizeof(int64_t) * 2;
-     es = malloc(es_size);
 
-     if (!es || !us) {
+     if (!us) {
 	  printf("memory error.\n");
 	  return -1;
      }
@@ -745,11 +754,11 @@ int main(int argc, char * argv[])
 
      timeout.tv_sec = 10;
      timeout.tv_usec = 0;
-
+     
      signal(SIGINT,sig_handler);
-
+     
      //system("rm /tmp/mine_serv");
-
+     
      system("rm /tmp/mq");
      mq_unlink("/mq");
 
@@ -757,8 +766,8 @@ int main(int argc, char * argv[])
      sprintf(fifo, "/tmp/mine_serv");
 
      srv_addr = fifo;
-
-
+     
+     /*
      srv_addr_mq ="/tmp/mq";
 
      char * addr = configuration("config",mm_commtype(),3);
@@ -773,7 +782,7 @@ int main(int argc, char * argv[])
      system("gnome-terminal -e ./bin/mq.out");
 
 
-    c = mm_accept(lp) ;
+     c = mm_accept(lp) ;
        char msg[100]="";
 
        while(strcmp(msg,"got_connected") != 0){
@@ -786,12 +795,12 @@ int main(int argc, char * argv[])
 
 
        mm_disconnect_listener(lp);
-
+     */
 
 
      /* open connection */
 
-     addr = configuration("config",mm_commtype(),1);
+      char * addr = configuration("config",mm_commtype(),1);
 
       lp = mm_listen(addr);
       if (lp == NULL) {
@@ -803,9 +812,9 @@ int main(int argc, char * argv[])
      while ( count < players && (c = mm_accept(lp)) != NULL) {
 	  /* established conection on c, needs to create thread */
 	  printf("conexion establecida. Creando thread.\n");
-	  add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c, sizeof(QueryStruct), us_size);
+	  add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c, sizeof(QueryStruct) + 1, us_size);
 	  printf("thread creado..\n");
-	  mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
+	  // mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
 	  count++;
      }
 
@@ -822,10 +831,13 @@ int main(int argc, char * argv[])
      is.rows = rows;
      is.mines = mines;
      is.players = cli_i;
+     char buf[1000], data_struct[1000];
+     buf[0] = INITGAME;
+     memcpy(buf+1, (char *) &is,sizeof(InitStruct));
      /* send game info to clients */
      for (int i = 0; i < cli_i; i++) {
 	  is.player_id = i;
-	  write(pths[i]->w_fd, (char *) &is, sizeof(InitStruct));
+	  write(pths[i]->w_fd, buf, sizeof(InitStruct) + 1);
 	  printf("b\n");
 
      }
@@ -863,12 +875,16 @@ int main(int argc, char * argv[])
 		    }
 		    else if (FD_ISSET(pths[i]->r_fd, &r_set)) {
 			 /* read fd */
-			 if (read(pths[i]->r_fd,(char *) &qs,max_size) > 0) {
-
-			      if (update_minefield(minef, qs.x, qs.y, i, us) > 0) {
-				   u_flag = 1;
-				    sprintf(msg,"x: %d y: %d player:%d",(int)qs.x,(int)qs.y, (int) i);
-				      	   mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
+			 if (read(pths[i]->r_fd,data_struct,max_size) > 0) {
+			      printf("aaaaa\n");
+			      if (data_struct[0] == QUERYMINE) {
+				   qs = (QueryStruct *) &data_struct[1];
+				   printf("x: %d; y: %d \n", qs->x, qs->y);
+				   if (update_minefield(minef, qs->x, qs->y, i, us) > 0) {
+					u_flag = 1;
+					//    sprintf(msg,"x: %d y: %d player:%d",(int)qs.x,(int)qs.y, (int) i);
+					//	   mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
+				   }
 			      }
 			 }
 		    }
@@ -890,29 +906,31 @@ int main(int argc, char * argv[])
 			      continue;
 			 }
 
-			 	 sprintf(msg,"unveiled x:%d y:%d n:%d player:%d ", us->tiles[i].x, us->tiles[i].y, us->tiles[i].nearby, us->tiles[i].player);
-			 	mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
+			 //	 sprintf(msg,"unveiled x:%d y:%d n:%d player:%d ", us->tiles[i].x, us->tiles[i].y, us->tiles[i].nearby, us->tiles[i].player);
+				 //	mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
 		    }
-
+		    msg_type = UPDATEGAME;
 		    for (int i = 0; i < cli_i; i++) {
 			 if (pths[i] == NULL) {
 			      continue;
 			 }
+			 //write(pths[i]->w_fd, &msg_type, 1);
 			 write(pths[i]->w_fd, (char *) us, sizeof(UpdateStruct)+ sizeof(int8_t) * 4 * us->len);
 		    }
 		    us->len = 0;
 		    u_flag = 0;
 	       }
-	       if (minef->endflag) {
-		    es->winner_id = minef->winner_id;
-		    es->players = minef->players;
-		    memcpy(es->player_scores, minef->player_scores, players * sizeof(int64_t));
+	       if (endflag) {
+		    msg_type = ENDGAME;
+		    es.winner_id = minef->winner_id;
+		    es.players = minef->players;
+		    memcpy(es.player_scores, minef->player_scores, players * sizeof(int64_t));
 		    for (int i = 0; i < us->len;i++) {
 			 if (pths[i] == NULL) {
 			      continue;
 			 }
-
-			 write(pths[i]->w_fd, (char *) es, es_size);
+			 write(pths[i]->w_fd, &msg_type, 1);
+			 write(pths[i]->w_fd, (char *) &es, sizeof(EndGameStruct));
 		    }
 		    q = TRUE;
 	       }

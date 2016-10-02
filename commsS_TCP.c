@@ -10,8 +10,8 @@
 #include <netdb.h>
 
 struct message{
-  int size;
-} ;
+     int size;
+};
 
 typedef struct message Message;
 
@@ -25,7 +25,7 @@ struct listener {
 
 static Listener_p newListener(int fd);
 static Connection * newConnection(int fd);
-static int write_msg(int w_fd,const char * m,int size);
+static int write_msg(int w_fd,const char * m,int64_t size);
 
 Listener_p mm_listen(char * addr){
   struct addrinfo hints, *res;
@@ -58,6 +58,7 @@ Connection * mm_connect(char * addr){
 
   sfd=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
   if(sfd==-1){
+       
     return NULL;
   }
   char tmp[64];
@@ -70,6 +71,7 @@ Connection * mm_connect(char * addr){
   val = inet_pton(AF_INET,dir,&sa.sin_addr);
   if(connect(sfd,(struct sockaddr *)&sa,sizeof(sa))==-1){
     close(sfd);
+    printf("algo\n");
     return NULL;
   }
   return newConnection(sfd);
@@ -113,12 +115,13 @@ Connection * mm_accept(Listener_p l){
 
 int mm_read(Connection * c, char buf[], int size){
      int len, r_len;
-  Message m;
-  if ((len = read(c->fd,(char *) &m,sizeof(Message))) < 0) {
+  int64_t s;
+  
+  if ((len = read(c->fd,(char *) &s,sizeof(int64_t))) < 0) {
      return -1;
   }
-  char * tmp = malloc(m.size);
-  r_len = read(c->fd,tmp,m.size);
+  char * tmp = malloc(s);
+  r_len = read(c->fd,tmp,s);
   len = min(size, r_len);
   memcpy(buf,tmp,len);
   free(tmp);
@@ -126,8 +129,7 @@ int mm_read(Connection * c, char buf[], int size){
 }
 
 int mm_write(Connection * c, const char * m,int size){
-  write_msg(c->fd,m,size);
-  return size;
+  return write_msg(c->fd,m,size);
 }
 
 static Connection * newConnection(int fd){
@@ -142,16 +144,16 @@ static Listener_p newListener(int fd){
   return l;
 }
 
-static int write_msg(int w_fd,const char * m,int size){
-
-  Message * msg = calloc(sizeof(Message),1);
-  msg->size=size;
-  write(w_fd,msg,sizeof(Message));
-  if(size>0){
-    write(w_fd,m,size);
-  }
-  free(msg);
-  return size;
+static int write_msg(int w_fd,const char * m,int64_t size){
+     int ret;
+     char * buf = calloc(1,sizeof(int64_t) + size), * b;
+     b = buf;
+     memcpy(b, &size, sizeof(int64_t));
+     b+=sizeof(int64_t);
+     memcpy(b, m, size);
+     ret = write(w_fd,buf,sizeof(int64_t)+size);
+     free(buf);
+     return ret;
 }
 
 int mm_commtype(){
