@@ -28,6 +28,7 @@ static int64_t init_marsh(char buf[], const InitStruct * is)
 static int64_t update_marsh(char buf[], const UpdateStruct * us)
 {
      int64_t size = 1 + us->len * 4 + sizeof(UpdateStruct);
+     char * base = buf;
      if (MAX_BUF_SIZE < size) {
 	  return -1;
      }
@@ -43,6 +44,7 @@ static int64_t update_marsh(char buf[], const UpdateStruct * us)
 	  *buf++ = us->tiles[i].nearby;
 	  *buf++ = us->tiles[i].player;
      }
+     printf("size: %d, %d\n", (int) base[0], size);
      return size;
 }
 
@@ -92,13 +94,16 @@ int64_t query_unmarsh(char data_struct[], char buf[])
 
 int8_t receive(Connection * c, char * data_struct, int64_t size, struct timeval * timeout)
 {
-     static char * buf;
+     static char * buf = NULL;
+     static int buf_size = 0;
      int64_t read, ret;
-     if (buf == NULL) {
+     if (buf_size < size) {
+	  free(buf);
 	  buf = malloc(size);
 	  if (buf == NULL) {
 	       return ERROR;
 	  }
+	  buf_size = size;
      }
      if ( (read = mm_select(c,timeout) ) > 0) {
 	  ret = mm_read(c, buf, size);

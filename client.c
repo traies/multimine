@@ -144,13 +144,16 @@ void update_scores(WINDOW * win, int64_t (*player_scores)[2], int64_t players, i
 }
 
 char fin[30], fout[30];
-void cli_exit() {
+void cli_exit(char * msg) {
      char buf[50];
      sprintf(buf, "rm %s", fin);
      system(buf);
      sprintf(buf, "rm %s", fout);
      system(buf);
      endwin(); /* reset terminal */
+     if (msg) {
+	  printf("%s", msg);
+     }
      exit(0);
      return;
 }
@@ -159,7 +162,7 @@ void cli_exit() {
 void sig_handler(int signo)
 {
      if (signo == SIGINT) {
-	  cli_exit();
+	  cli_exit("kill by interrupt\n");
      }
      return;
 }
@@ -230,7 +233,8 @@ int main(int argc, char *argv[])
      Connection * con;
      struct timeval timeout;
      int8_t selret;
-     void * data_struct;
+     char * data_struct;
+     int data_size;
      
      timeout.tv_sec = 1;
      timeout.tv_usec = 0;
@@ -254,8 +258,7 @@ int main(int argc, char *argv[])
      con = mm_connect(srv_addr);
 
      if (!con) {
-	  printf("no se pudo subscribir.\n");
-	  cli_exit();
+	  cli_exit("no se pudo subscribir.\n");
 	  return 0;
      }
      printf("suscrito.\n");
@@ -293,6 +296,12 @@ int main(int argc, char *argv[])
      free(is);
      us_size = sizeof(UpdateStruct) + cols * rows * 4;
      us = malloc(us_size);
+     data_size = sizeof(UpdateStruct) + cols * rows * 4 + 1;
+     data_struct = malloc(data_size);
+     if (!data_struct) {
+	  cli_exit("memory error\n");
+	  return 0;
+     }
      mine_buffer = malloc(sizeof( int64_t * [2]) * (cols));
      mine_buffer_aux = malloc(sizeof(int64_t[3][2]) * (rows) * (cols));
      utiles = (cols) * (rows) - mines;
@@ -480,10 +489,10 @@ int main(int argc, char *argv[])
 	  default:
 	       break;
 	  }
-	  /*
-	  msg_type = receive_update(con, &data_struct, &select_timeout);
+	  
+	  msg_type = receive_update(con, data_struct, data_size, &select_timeout);
 	  if (msg_type == UPDATEGAME) {
-	       us = (UpdateStruct *) data_struct;
+	       us = (UpdateStruct *) &data_struct[1];
 	       count = us->len;
 	       if (count > 0) {
 		    for(int i = 0; i < count; i++){
@@ -523,14 +532,12 @@ int main(int argc, char *argv[])
 	       }
 	  }
 	  else if (msg_type == DISCONNECT) {
-	       printf("desconectado\n");
-	       cli_exit();
+	       cli_exit("desconectado\n");
 	  }
 	  else if (msg_type == ENDGAME) {
-	       printf("termino el juego\n");
-	       cli_exit();
+	       cli_exit("termino el juego\n");
 	  }
-	  else */if (mm_select(con, &select_timeout) > 0) {
+	  /*else if (mm_select(con, &select_timeout) > 0) {
 	       mm_read(con, (char *) us, us_size);
 	       count = us->len;
 	       if (count > 0) {
@@ -573,7 +580,7 @@ int main(int argc, char *argv[])
 	       if(!highscores_on) {
 		    update_scores(win_side, player_scores, players, utiles, total_tiles);
 	       }
-	  }
+	       }*/
 	  
 	  current_utc_time(&end_frame_time);
 	  //clock_gettime(CLOCK_REALTIME, &end_frame_time);
@@ -636,7 +643,7 @@ int main(int argc, char *argv[])
       }
       getch();
 
-     cli_exit();
+     cli_exit(0);
      return 0;
 }
 

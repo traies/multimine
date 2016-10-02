@@ -6,6 +6,6 @@
 
 int64_t send_query(Connection * c, QueryStruct * us);
 int8_t receive_init(Connection * c,InitStruct ** buf, struct timeval * timeout, int64_t tries);
-int8_t receive_update(Connection * c, void ** buf, struct timeval * timeout);
+int8_t receive_update(Connection * c, char * data_struct, int64_t data_size, struct timeval * timeout);
 
 #endif

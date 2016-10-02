@@ -34,25 +34,23 @@ static int64_t init_unmarsh(InitStruct ** is, char buf[])
      (*is)->players = *buf++;
      return sizeof(InitStruct);
 }
-static int64_t update_unmarsh(UpdateStruct ** us, char buf[])
+static int64_t update_unmarsh(char data_struct[], char buf[])
 {
+     UpdateStruct * us;
      int64_t len;
-     buf++;
-     memcpy(&len, buf, sizeof(int64_t));
-     *us = malloc(sizeof(UpdateStruct) + len * 4);
-     if (!*us) {
-	  return -1;
-     }
-     memcpy(&(*us)->len, buf, sizeof(int64_t));
-     buf += sizeof(int64_t);
-     (*us)->players = *buf++;
-     memcpy((*us)->player_scores, buf, sizeof(int64_t[8][2]));
+     data_struct[0] = buf[0];
+     us = (UpdateStruct *) &data_struct[1];
+     memcpy(&len, &buf[1], sizeof(int64_t));
+     memcpy(&us->len, &buf[1], sizeof(int64_t));
+     buf += sizeof(int64_t) + 1;
+     us->players = *buf++;
+     memcpy(&us->player_scores, buf, sizeof(int64_t[8][2]));
      buf += sizeof(int64_t[8][2]);
      for (int i = 0; i < len; i++) {
-	  (*us)->tiles[i].x = *buf++;
-	  (*us)->tiles[i].y = *buf++;
-	  (*us)->tiles[i].nearby = *buf++;
-	  (*us)->tiles[i].player = *buf++;
+	  us->tiles[i].x = *buf++;
+	  us->tiles[i].y = *buf++;
+	  us->tiles[i].nearby = *buf++;
+	  us->tiles[i].player = *buf++;
      }
      return sizeof(UpdateStruct) + len * 4;
 }
@@ -123,11 +121,20 @@ int8_t receive_init(Connection * c,InitStruct ** data_struct, struct timeval * t
      return ret;
 }
 
-int8_t receive_update(Connection * c, void ** data_struct, struct timeval * timeout)
+int8_t receive_update(Connection * c, char * data_struct, int64_t size, struct timeval * timeout)
 {
-     static char buf[MAX_BUF_SIZE];
+     static char * buf = NULL;
+     static int buf_size = 0;
      int64_t read, ret;
      
+     if (buf_size < size) {
+	  free(buf);
+	  buf = malloc(size);
+	  if (buf == NULL) {
+	       return ERROR;
+	  }
+	  buf_size = size;
+     }
      if ((read = mm_select(c,timeout) ) > 0) {
 	  ret = mm_read(c, buf, MAX_BUF_SIZE);
      }
@@ -139,7 +146,7 @@ int8_t receive_update(Connection * c, void ** data_struct, struct timeval * time
      }
      if (buf[0] == UPDATEGAME) {
 	  
-	  if (update_unmarsh((UpdateStruct **)data_struct, buf) > 0){
+	  if (update_unmarsh(data_struct, buf) > 0){
 	       ret = UPDATEGAME;
 	  }
 	  else {

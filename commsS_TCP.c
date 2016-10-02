@@ -117,8 +117,8 @@ int mm_read(Connection * c, char buf[], int size){
      int len, r_len;
   int64_t s;
   
-  if ((len = read(c->fd,(char *) &s,sizeof(int64_t))) < 0) {
-     return -1;
+  if ((len = read(c->fd,(char *) &s,sizeof(int64_t))) <= 0) {
+     return 0;
   }
   char * tmp = malloc(s);
   r_len = read(c->fd,tmp,s);

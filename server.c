@@ -639,7 +639,7 @@ void * inform(void * a)
 	  timeout.tv_sec = 1;
 	  timeout.tv_usec = 0;
 	  if (FD_ISSET(r_fd, &fds) && (len = read(r_fd, buf, buf_size)) > 0) {
-	       /*if (buf[0] == INITGAME) {
+	       if (buf[0] == INITGAME) {
 		    send_init(con, (InitStruct *) (buf+1));
 	       }
 	       else if (buf[0] == UPDATEGAME) {
@@ -648,9 +648,6 @@ void * inform(void * a)
 	       else if (buf[0] == ENDGAME) {
 		    send_endgame(con, (EndGameStruct *) (buf+1));
 	       }
-	       else {*/
-		    mm_write(con, buf, len);
-		    //}
 	  }
 	  else {
 	       FD_SET(r_fd, &fds);
@@ -831,13 +828,19 @@ int main(int argc, char * argv[])
      is.rows = rows;
      is.mines = mines;
      is.players = cli_i;
-     char buf[1000], data_struct[1000];
-     buf[0] = INITGAME;
-     memcpy(buf+1, (char *) &is,sizeof(InitStruct));
+     char * data_struct;
+     int data_size;
+     data_struct = malloc(sizeof(UpdateStruct) + 4 * cols * rows + 1);
+     if (!data_struct) {
+	  printf("memory error\n");
+	  return -1;
+     }
+     data_struct[0] = INITGAME;
+     memcpy(data_struct+1, (char *) &is,sizeof(InitStruct));
      /* send game info to clients */
      for (int i = 0; i < cli_i; i++) {
 	  is.player_id = i;
-	  write(pths[i]->w_fd, buf, sizeof(InitStruct) + 1);
+	  write(pths[i]->w_fd, data_struct, sizeof(InitStruct) + 1);
 	  printf("b\n");
 
      }
@@ -876,10 +879,8 @@ int main(int argc, char * argv[])
 		    else if (FD_ISSET(pths[i]->r_fd, &r_set)) {
 			 /* read fd */
 			 if (read(pths[i]->r_fd,data_struct,max_size) > 0) {
-			      printf("aaaaa\n");
 			      if (data_struct[0] == QUERYMINE) {
 				   qs = (QueryStruct *) &data_struct[1];
-				   printf("x: %d; y: %d \n", qs->x, qs->y);
 				   if (update_minefield(minef, qs->x, qs->y, i, us) > 0) {
 					u_flag = 1;
 					//    sprintf(msg,"x: %d y: %d player:%d",(int)qs.x,(int)qs.y, (int) i);
@@ -910,12 +911,16 @@ int main(int argc, char * argv[])
 				 //	mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
 		    }
 		    msg_type = UPDATEGAME;
+		    data_struct[0] = msg_type;
+		    data_size = sizeof(UpdateStruct) + 4 * us->len;
+		    memcpy(&data_struct[1], us, data_size);
 		    for (int i = 0; i < cli_i; i++) {
 			 if (pths[i] == NULL) {
 			      continue;
 			 }
 			 //write(pths[i]->w_fd, &msg_type, 1);
-			 write(pths[i]->w_fd, (char *) us, sizeof(UpdateStruct)+ sizeof(int8_t) * 4 * us->len);
+			 
+			 write(pths[i]->w_fd, data_struct, data_size + 1);
 		    }
 		    us->len = 0;
 		    u_flag = 0;
