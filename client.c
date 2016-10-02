@@ -224,8 +224,9 @@ int main(int argc, char *argv[])
      int8_t selret;
      char * data_struct;
      int data_size;
+     
+     timeout.tv_sec = 20;
 
-     timeout.tv_sec = 1;
      timeout.tv_usec = 0;
 
      /*

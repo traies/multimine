@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <time.h>
 #include <queue.h>
 #include <comms.h>
@@ -22,7 +23,7 @@
 #define NORMAL_PR 0
 #define WARNING_PR 1000
 #define ERR_PR sysconf(_SC_MQ_PRIO_MAX) - 1
-
+#define MEMORY_ERROR -1
 #define TRUE 1
 #define FALSE 0
 #define COLS 50
@@ -59,21 +60,19 @@ int64_t update_scores(Minefield * m, UpdateStruct * us )
 
 void srv_exit(ClientPthreads * pths[], int cli_i)
 {
-     system("rm /tmp/mine_serv");
-      system("rm /tmp/mq");
-      if (pths == NULL || cli_i == 0) {
-	   return;
-      }
-      for (int i = 0; i < cli_i; i++) {
-	   /* killing threads */
-	   if (pths[i] == NULL) {
-		continue;
-	   }
-	   pths[i]->attr_killflag = TRUE;
-	   pthread_join(pths[i]->p_attr, NULL);
-	   pths[i]->info_killflag = TRUE;
-	   pthread_join(pths[i]->p_info, NULL);
-      }
+     if (pths == NULL || cli_i == 0) {
+	  return;
+     }
+     for (int i = 0; i < cli_i; i++) {
+	  /* killing threads */
+	  if (pths[i] == NULL) {
+	       continue;
+	  }
+	  pths[i]->attr_killflag = TRUE;
+	  pthread_join(pths[i]->p_attr, NULL);
+	  pths[i]->info_killflag = TRUE;
+	  pthread_join(pths[i]->p_info, NULL);
+     }
      exit(0);
 }
 
@@ -109,7 +108,6 @@ void * attend(void * a)
      /* expects blocking read */
      while (!*killflag) {
 	  if ((len = receive(con, buf, buf_size, &timeout)) > 0) {
-	       printf("len %d\n", len);
 	       write(w_fd, buf, len);
 	  }
 	  else if (len == -1) {
@@ -117,7 +115,8 @@ void * attend(void * a)
 	       break;
 	  }
      }
-     *killflag = TRUE;
+     /* close fd to main server */
+     close(w_fd);
      free(buf);
      pthread_exit(0);
 }
@@ -231,6 +230,192 @@ int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set, 
      return 0;
 }
 
+int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[8], int64_t players)
+{
+     fd_set r_set;
+     int8_t q, uflag = false, msg_type, endflag = false;
+     int64_t nfds = 0, sflag, rlen, data_size;
+     UpdateStruct * us;
+     QueryStruct * qs;
+     EndGameStruct es;
+     struct timeval timeout;
+     char * data_struct;
+
+     /* init data buffer */
+     data_size = sizeof(UpdateStruct) + msize * 4 + 1;
+     data_struct = malloc(data_size);
+     us = malloc(data_size);
+     if (!data_struct || !us) {
+	  free_minefield(minef);
+	  return MEMORY_ERROR;
+     }
+     us->len = 0;
+
+     /* set select timeout */
+     timeout.tv_sec = 5;
+     timeout.tv_usec = 0;
+
+     /* fill in read file descriptor set */
+     for (int i = 0; i < players; i++) {
+	  if (nfds < pths[i]->r_fd) {
+	       nfds = pths[i]->r_fd;
+	  }
+	  FD_SET(pths[i]->r_fd, &r_set);
+     }
+     nfds++;
+
+     while(!q) {
+	  /* select on pthreads read */
+	  sflag = select(nfds, &r_set, NULL, NULL, &timeout);
+	  /* reset timeout */
+	  timeout.tv_sec = 5;
+	  timeout.tv_usec = 0;
+
+	  if (sflag == 0) {
+	       /* timeout expired */
+	       for (int i = 0; i < players; i++) {
+		    if (pths[i] == NULL) {
+			 continue;
+		    }
+		    FD_SET(pths[i]->r_fd, &r_set);
+	       }
+	       printf("listening...\n");
+	  }
+	  else if (sflag < 0) {
+	       /* an error ocurred */
+	       srv_exit(pths,players);
+	  }
+	  else {
+	       /* a fd is ready */
+	       for (int i = 0; i < players; i++) {
+		    /* skip closed connections */
+		    if (pths[i] == NULL) {
+			 continue;
+		    }
+		    if (FD_ISSET(pths[i]->r_fd, &r_set)) {
+			 /* read first byte */
+			 rlen = read(pths[i]->r_fd, data_struct, 1);
+			 if (rlen > 0) {
+			      /* request arrived */
+			      if (data_struct[0] == QUERYMINE) {
+				   /* read remaining data */
+				   read(pths[i]->r_fd, &data_struct[1], sizeof(QueryStruct));
+				   qs = (QueryStruct *) &data_struct[1];
+				   printf("x: %d, y: %d \n", qs->x, qs->y);
+				   if (update_minefield(minef, qs->x, qs->y, i, us)) {
+					uflag = true;
+				   }
+			      }
+			 }
+			 else if (rlen == 0) {
+			      /* client disconnected */
+			      reset_score(minef, i);
+			      close(pths[i]->w_fd);
+			      FD_CLR(pths[i]->r_fd, &r_set);
+			      pths[i] = NULL;
+			 }
+
+		    }
+		    else {
+			 /* add fd to set */
+			 FD_SET(pths[i]->r_fd, &r_set);
+		    }
+	       }
+	       endflag = check_win_state(minef, &es);
+	       if (uflag) {
+		    /* send updates to players */
+
+		    uflag = false;
+		    update_scores(minef, us);
+		    msg_type = UPDATEGAME;
+		    data_struct[0] = msg_type;
+		    data_size = sizeof(UpdateStruct) + 4 * us->len;
+		    memcpy(&data_struct[1], us, data_size);
+		    for (int i = 0; i < players; i++) {
+
+			 if (pths[i] == NULL) {
+			      continue;
+			 }
+			 write(pths[i]->w_fd, data_struct, data_size + 1);
+		    }
+		    us->len = 0;
+	       }
+	       if (endflag) {
+		    /* end game conditions where met */
+		    msg_type = ENDGAME;
+		    data_struct[0] = msg_type;
+		    memcpy(&data_struct[1], &es, sizeof(EndGameStruct));
+
+		    for (int i = 0; i < players; i++) {
+			 if (pths[i] == NULL) {
+			      continue;
+			 }
+			 write(pths[i]->w_fd, data_struct, sizeof(EndGameStruct) + 1);
+		    }
+		    q = true;
+	       }
+	  }
+     }
+     /* close pthreads */
+     /*
+     for (int i = 0; i < players; i++) {
+	  if (pths[i] == NULL) {
+	       continue;
+	  }
+	  pths[i]->attr_killflag = true;
+	  pthread_join(pths[i]->p_attr, NULL);
+	  pths[i]->info_killflag = true;
+	  pthread_join(pths[i]->p_info, NULL);
+     }
+     */
+     free_minefield(minef);
+     return 0;
+
+}
+
+int64_t host_game(ClientPthreads * pths[8], int64_t players, int64_t rows, int64_t cols, int64_t mines)
+{
+     Minefield * minef;
+     char * data_struct;
+     int64_t data_size, ret;
+     InitStruct * is;
+
+     /* create minefield */
+     minef = create_minefield(cols, rows, mines, players);
+     if (minef == NULL) {
+	  return MEMORY_ERROR;
+     }
+     /* init data buffer with max size */
+     data_struct = malloc(sizeof(InitStruct) + 1);
+     if (!data_struct) {
+	  free_minefield(minef);
+	  return MEMORY_ERROR;
+     }
+
+     /* init INITGAME message struct  */
+     data_struct[0] = INITGAME;
+     is = (InitStruct *) &data_struct[1];
+     is->cols = cols;
+     is->rows = rows;
+     is->mines = mines;
+     is->players = players;
+
+     /* send game info to clients */
+     for (int i = 0; i < players; i++) {
+	  is->player_id = i;
+	  write(pths[i]->w_fd, data_struct, sizeof(InitStruct) + 1);
+     }
+
+     /* free init data buffer */
+     free(data_struct);
+
+     /* attend requests */
+     ret = attend_requests(minef, rows * cols, pths , players);
+
+     return ret;
+}
+
+
 int main(int argc, char * argv[])
 {
      char * srv_addr;
@@ -249,7 +434,7 @@ int main(int argc, char * argv[])
      EndGameStruct es;
      InitStruct * is;
      int players;
-     ClientPthreads * pths[10];
+     ClientPthreads * pths[8];
      int64_t cli_i = 0;
      Listener * lp = NULL;
      int8_t endflag = FALSE, msg_type;
@@ -348,18 +533,28 @@ int main(int argc, char * argv[])
 	  /* connections failed */
 	  srv_exit(NULL, 0);
      }
-     /* create minefield */
-     minef = create_minefield(cols, rows, mines, players);
+
+
+     host_game(pths, players, rows, cols, mines);
+     return 0;
+}
+
+/* create minefield */
+     /*  minef = create_minefield(cols, rows, mines, players);
+
 
      char * data_struct;
      char * highscore_struct;
      int data_size;
+
+     /*
      data_struct = malloc(sizeof(UpdateStruct) + 4 * cols * rows + 1);
      highscore_struct = malloc(sizeof(Highscore)*10 + 1+sizeof(int));
      if (!data_struct || !highscore_struct) {
 	  printf("memory error\n");
 	  return -1;
      }
+
      data_struct[0] = INITGAME;
      is = &data_struct[1];
      is->cols = cols;
@@ -367,15 +562,16 @@ int main(int argc, char * argv[])
      is->mines = mines;
      is->players = cli_i;
      /* send game info to clients */
-     for (int i = 0; i < cli_i; i++) {
+     /*for (int i = 0; i < cli_i; i++) {
 	  is->player_id = i;
 	  write(pths[i]->w_fd, data_struct, sizeof(InitStruct) + 1);
      }
 
+
      while (!q) {
 
-	  /* read() */
-	  sflag = select(attr_nfds, &r_set, NULL, NULL, &timeout);
+     */	  /* read() */
+/*	  sflag = select(attr_nfds, &r_set, NULL, NULL, &timeout);
 	  timeout.tv_sec = 10;
 
 	  if (sflag == 0) {
@@ -387,7 +583,7 @@ int main(int argc, char * argv[])
 
 	  if (sflag < 0) {
 	       /* timeout expired*/
-	       srv_exit(pths,cli_i);
+/*	       srv_exit(pths,cli_i);
 	  }
 	  else if (sflag > 0){
 	       for(int i = 0; i < cli_i; i++) {
@@ -405,7 +601,7 @@ int main(int argc, char * argv[])
 		    }
 		    else if (FD_ISSET(pths[i]->r_fd, &r_set)) {
 			 /* read fd */
-			 if (read(pths[i]->r_fd,data_struct,max_size) > 0) {
+/*			 if (read(pths[i]->r_fd,data_struct,max_size) > 0) {
 			      if (data_struct[0] == QUERYMINE) {
 				   qs = (QueryStruct *) &data_struct[1];
 				   if (update_minefield(minef, qs->x, qs->y, i, us) > 0) {
@@ -430,7 +626,7 @@ int main(int argc, char * argv[])
 	             select(info_nfds, NULL, &w_set, NULL, &timeout);
              }
 	       */
-	       endflag = check_win_state(minef, &es);
+/*	       endflag = check_win_state(minef, &es);
 	       if (u_flag){
 
 
@@ -505,4 +701,4 @@ int main(int argc, char * argv[])
      // close_connections();
      // free_minefield();
      // return;
-}
+//}

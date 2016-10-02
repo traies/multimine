@@ -462,6 +462,7 @@ int8_t check_win_state(Minefield * m, EndGameStruct * es)
 	  sort_scores(pscores, players);
 	  update_scores_to_ids(pids, pscores, players);
 	  if (pscores[0][1] > utiles + pscores[1][1] || pleft == 1) {
+	       printf("%d > %d \n", (int) pscores[0][1] , (int) utiles + pscores[1][1]);
 	       es->winner_id = pscores[0][0];
 	       es->players = get_scores(m, es->player_scores);
 	       return true;
@@ -486,6 +487,9 @@ int8_t reset_score(Minefield * m, int64_t playerid)
      if (!m) {
 	  return -1;
      }
-     m->player_scores[m->player_ids[playerid]][0] = -1;
+     m->player_scores[m->player_ids[playerid]][1] = -1;
+     m->players_left--;
+     sort_scores(m->player_scores, m->players);
+     update_scores_to_ids(m->player_ids, m->player_scores, m->players);
      return 0;
 }
