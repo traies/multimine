@@ -163,6 +163,11 @@ void * inform(void * a)
 		    read(r_fd, &buf[1], sizeof(EndGameStruct));
 		    send_endgame(con, (EndGameStruct *) (buf + 1));
 	       }
+         else if (buf[0] == HIGHSCORE) {
+           read(r_fd, &buf[1], sizeof(int));
+          read(r_fd, &buf[1+sizeof(int)], (int)buf[1]*sizeof(Highscore));
+          send_highscore(con, (Highscore *) (buf + 1+sizeof(int)));
+        }
 	  }
 	  else if (FD_ISSET(r_fd, &fds) && len == 0) {
 	       break;
@@ -245,7 +250,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 	  return MEMORY_ERROR;
      }
      us->len = 0;
-     
+
      /* set select timeout */
      timeout.tv_sec = 5;
      timeout.tv_usec = 0;
@@ -258,7 +263,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 	  FD_SET(pths[i]->r_fd, &r_set);
      }
      nfds++;
-     
+
      while(!q) {
 	  /* select on pthreads read */
 	  sflag = select(nfds, &r_set, NULL, NULL, &timeout);
@@ -310,7 +315,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 			      free(pths[i]);
 			      pths[i] = NULL;
 			 }
-			 
+
 		    }
 		    else {
 			 /* add fd to set */
@@ -320,7 +325,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 	       endflag = check_win_state(minef, &es);
 	       if (uflag) {
 		    /* send updates to players */
-		    
+
 		    uflag = false;
 		    update_scores(minef, us);
 		    msg_type = UPDATEGAME;
@@ -365,7 +370,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
      
      free_minefield(minef);
      return 0;
-     
+
 }
 
 int64_t host_game(ClientPthreads * pths[8], int64_t players, int64_t rows, int64_t cols, int64_t mines)
@@ -374,7 +379,7 @@ int64_t host_game(ClientPthreads * pths[8], int64_t players, int64_t rows, int64
      char * data_struct;
      int64_t data_size, ret;
      InitStruct * is;
-     
+
      /* create minefield */
      minef = create_minefield(cols, rows, mines, players);
      if (minef == NULL) {
@@ -394,7 +399,7 @@ int64_t host_game(ClientPthreads * pths[8], int64_t players, int64_t rows, int64
      is->rows = rows;
      is->mines = mines;
      is->players = players;
-     
+
      /* send game info to clients */
      for (int i = 0; i < players; i++) {
 	  is->player_id = i;
@@ -403,7 +408,7 @@ int64_t host_game(ClientPthreads * pths[8], int64_t players, int64_t rows, int64
 
      /* free init data buffer */
      free(data_struct);
-     
+
      /* attend requests */
      printf("c\n");
      ret = attend_requests(minef, rows * cols, pths , players);
@@ -416,7 +421,7 @@ int64_t host_game(ClientPthreads * pths[8], int64_t players, int64_t rows, int64
      }
      return ret;
 }
-     
+
 
 int main(int argc, char * argv[])
 {
@@ -458,14 +463,17 @@ int main(int argc, char * argv[])
      us->len = 0;
 
      int8_t u_flag = 0;
+     int8_t h_flag = 0;
+     int player;
+      Highscore * h;
 
      timeout.tv_sec = 10;
      timeout.tv_usec = 0;
-     
+
      signal(SIGINT,sig_handler);
-     
+
      //system("rm /tmp/mine_serv");
-     
+
      system("rm /tmp/mq");
      mq_unlink("/mq");
 
@@ -473,7 +481,7 @@ int main(int argc, char * argv[])
      sprintf(fifo, "/tmp/mine_serv");
 
      srv_addr = fifo;
-     
+
      /*
      srv_addr_mq ="/tmp/mq";
 
@@ -540,6 +548,7 @@ int main(int argc, char * argv[])
      return 0;
 }
 /*
+
 
      printf("game ended.\n");
      getchar();

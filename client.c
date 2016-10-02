@@ -405,18 +405,10 @@ int main(int argc, char *argv[])
 	       break;
 
     case 'H':
-            wclear(win_side);
-            win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
-            wmove(win_side,1,1);
-            wprintw(win_side,"Highscores:");
-            for(i = 2;i <5 ;i++){
-              wmove(win_side,i,1);
-              wprintw(win_side,"PEDRITO 5500");//print scores
-            }
-            wmove(win_side,i+1,1);
-            wprintw(win_side,"Presione H para volver");
-            wrefresh(win_side);
-            while(toupper(getch())!='H');
+          if(!highscores_on){
+            send_h_query(con);
+            highscores_on = 1;
+          }else{
             wclear(win_side);
             win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
             update_mines(win_side, mines);
@@ -425,6 +417,8 @@ int main(int argc, char *argv[])
             update_scores(win_side, player_scores, players, utiles, total_tiles);
             wmove(win,x,y);
             wrefresh(win);
+            highscores_on = 0;
+          }
      	     break;
 	  case ' ':
 	       if (mine_buffer[x-1][y-1][0] < 0 || mine_buffer[x-1][y-1][0] == 10) {
@@ -438,6 +432,7 @@ int main(int argc, char *argv[])
 			 draw_tile(win, y-1, x-1, 0, 1);
 			 marks--;
 		    }
+        if(!highscores_on)
 		    update_marks(win_side, marks);
 		    wmove(win,y,x);
 	       }
@@ -496,6 +491,7 @@ int main(int argc, char *argv[])
 			 auxp = us->tiles[i].player;
 			 if (mine_buffer[auxx][auxy][0] == 10) {
 			      marks--;
+            if(!highscores_on)
 			      update_marks(win_side,marks);
 			      wmove(win,y,x);
 			 }
@@ -515,16 +511,35 @@ int main(int argc, char *argv[])
 		    us->len = 0;
 		    wmove(win,y,x);
 		    utiles-=count;
+        if(!highscores_on)
 		    update_utiles(win_side, utiles);
 	       }
 	       for (int i = 0; i < us->players; i++) {
 		    player_scores[i] = us->player_scores[i];
 	       }
+         if(!highscores_on)
 	       update_scores(win_side, player_scores, players, utiles, total_tiles);
 	  }
 	  else if (msg_type == DISCONNECT) {
 	       cli_exit("desconectado\n");
 	  }
+    else if(msg_type == HIGHSCORE){
+      Highscore * h = (Highscore*) &data_struct[1];
+      int j = 0;
+      wclear(win_side);
+      win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
+      wmove(win_side,1,1);
+      wprintw(win_side,"Highscores:");
+      i = 2;
+      while(strcmp(h[j].name,"")!=0){
+        wmove(win_side,i++,1);
+        wprintw(win_side,"%s %d",h[j].name,h[j].score);//print scores
+        j++;
+      }
+      wmove(win_side,i+1,1);
+      wprintw(win_side,"Presione H para volver");
+      wrefresh(win_side);
+    }
 	  else if (msg_type == ENDGAME) {
 	       es = (EndGameStruct *) &data_struct[1];
 	       for (int i = 0; i < es->players; i++) {

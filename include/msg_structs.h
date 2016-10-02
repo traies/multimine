@@ -10,6 +10,23 @@ extern const int8_t ENDGAME;
 extern const int8_t DISCONNECT;
 extern const int8_t NOREAD;
 extern const int8_t ERROR;
+extern const int8_t HIGHSCORE;
+
+
+
+
+typedef struct Highscore
+{
+  char name[20];
+  int score;
+}Highscore;
+
+typedef struct Stat
+{
+  char name[20];
+  int wins;
+  int loses;
+}Stat;
 
 typedef struct InitStruct
 {

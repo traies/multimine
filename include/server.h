@@ -1,6 +1,7 @@
 #ifndef SERVER_H
 #define SERVER_H
 #include <stdint.h>
+#include <db.h>
 
 typedef struct Minefield * Minefield_p;
 
