@@ -8,4 +8,5 @@ const int8_t ENDGAME     = 3;
 const int8_t DISCONNECT  = 4;
 const int8_t NOREAD      = 5;
 const int8_t ERROR       = 6;
-const int8_t HIGHSCORE    = 7;
+const int8_t HIGHSCORES    = 7;
+const int8_t HIGHSCORE_ADD    = 8;

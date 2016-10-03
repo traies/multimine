@@ -10,8 +10,8 @@ extern const int8_t ENDGAME;
 extern const int8_t DISCONNECT;
 extern const int8_t NOREAD;
 extern const int8_t ERROR;
-extern const int8_t HIGHSCORE;
-
+extern const int8_t HIGHSCORES;
+extern const int8_t HIGHSCORE_ADD;
 
 
 

@@ -58,7 +58,7 @@ static int64_t endgame_marsh(char buf[], const EndGameStruct * es)
 
 static int64_t highscore_marsh(char buf[], const Highscore * h)
 {
-     *buf++ = HIGHSCORE;
+     *buf++ = HIGHSCORES;
      int i = 0;
      while(strcmp(h[i].name,"")!=0){
        memcpy(buf, &h[i++], sizeof(Highscore));
@@ -105,6 +105,15 @@ int64_t query_unmarsh(char data_struct[], char buf[])
      memcpy(&qs->y, &buf[2], 1);
      return sizeof(QueryStruct) + 1;
 }
+int64_t highscore_unmarsh(char data_struct[], char buf[])
+{
+     Highscore * h = (Highscore*) &data_struct[1];
+     data_struct[0] = buf[0];
+     printf("%s\n",buf+1 );
+     memcpy(&h->name, &buf[1], 20);
+     memcpy(&h->score, &buf[21], sizeof(int));
+     return sizeof(Highscore) + 1;
+}
 
 int8_t receive(Connection * c, char * data_struct, int64_t size, struct timeval * timeout)
 {
@@ -120,7 +129,7 @@ int8_t receive(Connection * c, char * data_struct, int64_t size, struct timeval 
 	  buf_size = size;
      }
      if ( (read = mm_select(c,timeout) ) > 0) {
-	  ret = mm_read(c, buf, size);
+	  ret = mm_read(c, buf, buf_size);
      }
      else {
 	  return 0;
@@ -130,9 +139,11 @@ int8_t receive(Connection * c, char * data_struct, int64_t size, struct timeval 
      }
      if (buf[0] == QUERYMINE) {
 	  ret = query_unmarsh(data_struct, buf);
-  }else if(buf[0] == HIGHSCORE){
-    data_struct[0]= HIGHSCORE;
+  }else if(buf[0] == HIGHSCORES){
+    data_struct[0]= HIGHSCORES;
     ret = 1;
+  }else if(buf[0] == HIGHSCORE_ADD){
+    ret = highscore_unmarsh(data_struct,buf);
   }
      else {
 	  ret = 0;
