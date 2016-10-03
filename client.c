@@ -168,48 +168,7 @@ void time_diff(struct timespec * diff, struct timespec * init, struct timespec *
      }
      return;
 }
-/*
-void update_scores_to_ids(int64_t *player_ids, int64_t (*player_scores)[2],  int64_t players)
-{
-     for (int i = 0; i < players; i++) {
-	  player_ids[player_scores[i][0]] = i;
-     }
-}
 
-void sort_scores(int64_t (* player_scores)[2], int64_t players)
-{
-     int64_t aux0, aux1;
-     int j;
-     for(int i = 1; i < players; i++) {
-	  aux0 = player_scores[i][0];
-	  aux1 = player_scores[i][1];
-	  j = i - 1;
-	  while ( j >= 0 && player_scores[j][1] < aux1) {
-	       player_scores[j+1][0] = player_scores[j][0];
-	       player_scores[j+1][1] = player_scores[j][1];
-	       j = j - 1;
-	  }
-	  player_scores[j+1][0] = aux0;
-	  player_scores[j+1][1] = aux1;
-     }
-     return;
-}
-*/
-/*
-int8_t check_win_state(int64_t * pids, int64_t (* pscores)[2], int64_t players, int64_t utiles )
-{
-     int8_t win_flag;
-     if (utiles <= 0) {
-	  return TRUE;
-     }
-     if (players > 1) {
-	  if (pscores[0][1] > utiles + pscores[1][1]) {
-	       return TRUE;
-	  }
-     }
-     return FALSE;
-}
-*/
 int main(int argc, char *argv[])
 {
      char * srv_addr;
@@ -224,24 +183,25 @@ int main(int argc, char *argv[])
      int8_t selret;
      char * data_struct;
      int data_size;
-
      timeout.tv_sec = 20;
-
      timeout.tv_usec = 0;
+     int len, max_size = 100;
+     int64_t c, win_h, win_w,  mb_size_1 = 0, mb_size_2 = 0, count = 0, auxi = 0, auxj = 0, marks = 0;
+     int8_t auxx, auxy, auxn, auxp;
+     int64_t utiles = 0, total_tiles;
+     int8_t win_flag = FALSE, loose_flag = FALSE, quit_flag = FALSE;
+     struct timespec init_frame_time, end_frame_time, diff_frame_time;
+     struct timeval select_timeout;
+     int64_t (** mine_buffer)[2] = NULL, (*mine_buffer_aux)[3][2] = NULL;
+     WINDOW * win, * win_side;
+     int i;
+     int highscores_on = 0;
+     int8_t msg_type, x, y;
+     EndGameStruct * es;
+     void * t_aux;
+     Highscore a;
 
-     /*
-     if (argc <=1) {
-       printf("no anduvo.\n");
-       return 0;
-     }
-     else {
-       printf("%s\n", argv[1]);
-       srv_addr = argv[1];
-     }
-     */
-
-
-     /* setting fifo path */
+	/* setting fifo path */
      sprintf(fin, "/tmp/r%d", getpid());
      sprintf(fout, "/tmp/w%d", getpid());
      signal(SIGINT, sig_handler);
@@ -264,23 +224,7 @@ int main(int argc, char *argv[])
 	  printf("se produjo un error\n");
 	  return 0;
      }
-
-     int len, max_size = 100;
-     int64_t c, win_h, win_w,  mb_size_1 = 0, mb_size_2 = 0, count = 0, auxi = 0, auxj = 0, marks = 0;
-     int8_t auxx, auxy, auxn, auxp;
-     int64_t utiles = 0, total_tiles;
-     int8_t win_flag = FALSE, loose_flag = FALSE, quit_flag = FALSE;
-     struct timespec init_frame_time, end_frame_time, diff_frame_time;
-     struct timeval select_timeout;
-     int64_t (** mine_buffer)[2] = NULL, (*mine_buffer_aux)[3][2] = NULL;
-     WINDOW * win, * win_side;
-     int i;
-     int highscores_on = 0;
-     int8_t msg_type, x, y;
-     EndGameStruct * es;
-     void * t_aux;
-       Highscore a;
-
+	
      cols = is->cols;
      rows = is->rows;
      mines= is->mines;
@@ -360,7 +304,6 @@ int main(int argc, char *argv[])
      noecho();
 
      /* set cursor to invisible */
-     //curs_set(0);
      refresh();
 
      win = create_window(win_h, win_w, (LINES - win_h) / 2, (COLS - win_w - 24) / 2);
@@ -381,10 +324,8 @@ int main(int argc, char *argv[])
      /* enable non-blocking getch with delay */
      timeout(5);
 
-     //wattrset(win, COLOR_PAIR(2));
      while(!win_flag && !quit_flag &&!loose_flag) {
     current_utc_time(&init_frame_time);
-	  //clock_gettime(CLOCK_REALTIME,&init_frame_time);
 	  select_timeout.tv_sec = 0;
 	  select_timeout.tv_usec = 5000L;
 
@@ -399,10 +340,6 @@ int main(int argc, char *argv[])
 	       qs.x = x-1;
 	       qs.y = y-1;
 	       send_query(con, &qs);
-
-	       /*
-	       mm_write(con, (char *) &qs, sizeof(QueryStruct));
-	       */
 	       break;
 
     case 'H':
@@ -556,56 +493,7 @@ int main(int argc, char *argv[])
 		        loose_flag= 1;
 	       }
 	  }
-	  /*else if (mm_select(con, &select_timeout) > 0) {
-	       mm_read(con, (char *) us, us_size);
-	       count = us->len;
-	       if (count > 0) {
-
-		    for(int i = 0; i < count; i++){
-			 auxx = us->tiles[i].x;
-			 auxy = us->tiles[i].y;
-			 auxn = us->tiles[i].nearby;
-			 auxp = us->tiles[i].player;
-
-			 if (mine_buffer[auxx][auxy][0] == 10) {
-			      marks--;
-			      update_marks(win_side,marks);
-			      wmove(win,y,x);
-			 }
-			 if (auxn == 9) {
-			      if (auxp == player_id) {
-				   loose_flag = TRUE;
-			      }
-			      mines--;
-			      utiles++;
-			 }
-			 else {
-			      player_scores[player_ids[auxp]][1]++;
-			 }
-			 mine_buffer[auxx][auxy][0] = auxn;
-			 mine_buffer[auxx][auxy][1] = us->tiles[i].player;
-			 draw_tile(win, auxy,auxx,auxn, us->tiles[i].player + 3);
-		    }
-
-		    us->len = 0;
-		    wmove(win,y,x);
-		    utiles-=count;
-		    update_utiles(win_side, utiles);
-	       }
-	       for (int i = 0; i < us->players; i++) {
-		    player_scores[i][0] = us->player_scores[i][0];
-		    player_scores[i][1] = us->player_scores[i][1];
-	       }
-	       if(!highscores_on) {
-		    update_scores(win_side, player_scores, players, utiles, total_tiles);
-	       }
-	       }*/
-
-
-
-
 	  current_utc_time(&end_frame_time);
-	  //clock_gettime(CLOCK_REALTIME, &end_frame_time);
 	  time_diff(&diff_frame_time,&init_frame_time,&end_frame_time);
 	  nanosleep(&diff_frame_time,NULL);
 	  wrefresh(win);

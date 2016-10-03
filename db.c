@@ -10,11 +10,9 @@
 
 static int save_highscores(void *unused, int count, char **data, char **columns);
 static int get_number_from(char * str);
-static int save_stats(void *unused, int count, char **data, char **columns);
 
 static sqlite3 * db;
 static Highscore h[max_highscores];
-static Stat s[max_stats];
 static int idx = 0;
 
 int open_database(){
@@ -27,32 +25,12 @@ int open_database(){
     return 0;
 }
 
-int clear_stats(){
-  char * error;
-  sqlite3_exec(db, "drop TABLE WIN_LOSE", NULL, NULL, &error);
-  return 0;
-}
 
 int clear_highscores(){
   char * error;
   sqlite3_exec(db,"drop TABLE HIGHSCORES",NULL,NULL,&error);
 }
-void add_id(char * name){
-  char * error;
-char * query = malloc(MAX_SIZE*sizeof(char));
-sprintf(query,"INSERT INTO WIN_LOSE values ('%s',0,0)",name);
-sqlite3_exec(db,query , NULL, NULL, &error);
-}
 
-void update_id(char * name,int type){
-    char * error;
-  char * query = malloc(MAX_SIZE*sizeof(char));
-  if(type == WIN)
-    sprintf(query,"UPDATE WIN_LOSE set wins=wins+1 where name = '%s'",name);
-  else
-    sprintf(query,"UPDATE WIN_LOSE set loses=loses+1 where name = '%s'",name);
-  sqlite3_exec(db,query , NULL, NULL, &error);
-}
 
 void insert_highscore(char * name,int score){
     char * error;
@@ -69,13 +47,6 @@ Highscore * get_highscores(int * count){
   return h;
 }
 
-Stat * get_stats(int * count){
-  char * error;
-  sqlite3_exec(db, "SELECT * FROM WIN_LOSE ORDER BY name ASC", save_stats, NULL, &error);
-  *count = idx;
-  idx = 0;
-  return s;
-}
 
 
 /*
@@ -96,16 +67,7 @@ Stat * get_stats(int * count){
       return 0;
  }
 
- static int save_stats(void *unused, int count, char **data, char **columns)
- {
-   if(idx < 10){
-      sprintf(s[idx].name,data[0]);
-      s[idx].wins = get_number_from(data[1]);
-      s[idx].loses = get_number_from(data[2]);
-   }
-   idx++;
-      return 0;
- }
+
 
  static int get_number_from(char * str){
    int i;
