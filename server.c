@@ -28,7 +28,7 @@
 #define FALSE 0
 #define COLS 50
 #define ROWS 20
-#define MINES 10
+#define MINES 100
 #define BUF_SIZE 50000
 #define DEFAULT_PLAYERS 1
 
@@ -151,7 +151,6 @@ void * inform(void * a)
 	       FD_SET(r_fd, &fds);
 	  }
      }
-     printf("closing informer\n");
      mm_disconnect(con);
      pthread_exit(0);
 }
@@ -408,8 +407,10 @@ int64_t host_game(ClientPthreads * pths[8], int64_t players, int64_t rows, int64
      free(data_struct);
 
      /* attend requests */
+
      printf("c\n");
      ret = attend_requests(minef, rows * cols, pths , players,mqd);
+
      for (int i = 0; i < players; i++) {
 	  if (pths[i] == NULL) {
 	       continue;
@@ -529,27 +530,3 @@ int main(int argc, char * argv[])
 
      return 0;
 }
-/*
-
-
-     printf("game ended.\n");
-     getchar();
-
-     srv_exit(pths, cli_i);
-     //minef = create_minefield(cols, rows, mines);
-
-     /* game loop */
-     // while (player > 1)
-     //    read();
-     //    update();
-     //    print_log();
-     //    send();
-
-
-
-     /* fifo clean up */
-     /* final */
-     // close_connections();
-     // free_minefield();
-     // return;
-//}
