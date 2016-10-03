@@ -20,6 +20,9 @@ int open_database(){
     if (sqlite3_open("example.db", &db) != SQLITE_OK)
         return -1;
     sqlite3_exec(db, "CREATE TABLE HIGHSCORES(name text,score int not null,primary key(name,score))", NULL, NULL, &error);
+    insert_highscore("ALEJO",100);
+    insert_highscore("TOMAS",100);
+    insert_highscore("NICOLAS",100);
     insert_highscore("",10000);
     return 0;
 }

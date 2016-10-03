@@ -520,7 +520,7 @@ int main(int argc, char *argv[])
 
           if(win_flag){
                  int time = (end.tv_sec - init.tv_sec);
-        if(h[j-1].score > time || strcmp(h[0].name,"")==0 || j-1 < 10) {
+        if(h[j-1].score > time || strcmp(h[0].name,"")==0 ) {
           char nombre[100] = " ";char d;
           int j = 0;
           wmove(win_side,i+2,1);
