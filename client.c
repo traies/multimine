@@ -501,26 +501,15 @@ int main(int argc, char *argv[])
      /* enable blocking getch() */
      timeout(-1);
      current_utc_time(&end);
-     do{
-     msg_type = receive_update(con, data_struct, data_size, &select_timeout);
-     }while( msg_type != HIGHSCORES);
-      Highscore * h = (Highscore*) &data_struct[1];
-      int j = 0;
+
       wclear(win_side);
       win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
       wmove(win_side,1,1);
-      wprintw(win_side,"Highscores:");
-      i = 2;
-      while(strcmp(h[j].name,"")!=0){
-        wmove(win_side,i++,1);
-        wprintw(win_side,"%s %d",h[j].name,h[j].score);//print scores
-        j++;
-      }
+
       wrefresh(win_side);
 
           if(win_flag){
-                 int time = (end.tv_sec - init.tv_sec);
-        if(h[j-1].score > time || strcmp(h[0].name,"")==0 ) {
+        int time = (end.tv_sec - init.tv_sec);
           char nombre[100] = " ";char d;
           int j = 0;
           wmove(win_side,i+2,1);
@@ -552,9 +541,7 @@ int main(int argc, char *argv[])
             sprintf(a.name,nombre);
             a.score = time;
             send_highscore(con,&a);
-         }else{
-           wmove(win_side,i+2,1);
-         }
+
         wprintw(win_side, "PRESS ENTER TO EXIT");
         wrefresh(win_side);
      }else{
