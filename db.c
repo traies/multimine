@@ -19,9 +19,11 @@ int open_database(){
   char * error;int i;
     if (sqlite3_open("example.db", &db) != SQLITE_OK)
         return -1;
-    sqlite3_exec(db, "CREATE TABLE HIGHSCORES(name text ,score int not null,primary key(name,score))", NULL, NULL, &error);
-    sqlite3_exec(db, "CREATE TABLE WIN_LOSE(name text ,wins int not null,loses int not null,primary key(name,wins,loses))", NULL, NULL, &error);
-    insert_highscore("",0);
+    sqlite3_exec(db, "CREATE TABLE HIGHSCORES(name text,score int not null,primary key(name,score))", NULL, NULL, &error);
+    insert_highscore("ALEJO",100);
+    insert_highscore("TOMAS",100);
+    insert_highscore("NICOLAS",100);
+    insert_highscore("",10000);
     return 0;
 }
 
@@ -41,7 +43,7 @@ void insert_highscore(char * name,int score){
 
 Highscore * get_highscores(int * count){
   char * error;
-  sqlite3_exec(db, "SELECT * FROM HIGHSCORES ORDER BY score DESC", save_highscores, NULL, &error);
+  sqlite3_exec(db, "SELECT * FROM HIGHSCORES ORDER BY score ASC", save_highscores, NULL, &error);
   *count = idx;
   idx = 0;
   return h;

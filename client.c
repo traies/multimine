@@ -190,7 +190,7 @@ int main(int argc, char *argv[])
      int8_t auxx, auxy, auxn, auxp;
      int64_t utiles = 0, total_tiles;
      int8_t win_flag = FALSE, loose_flag = FALSE, quit_flag = FALSE;
-     struct timespec init_frame_time, end_frame_time, diff_frame_time;
+     struct timespec init_frame_time, end_frame_time, diff_frame_time,init,end,diff;
      struct timeval select_timeout;
      int64_t (** mine_buffer)[2] = NULL, (*mine_buffer_aux)[3][2] = NULL;
      WINDOW * win, * win_side;
@@ -323,7 +323,7 @@ int main(int argc, char *argv[])
 
      /* enable non-blocking getch with delay */
      timeout(5);
-
+ current_utc_time(&init);
      while(!win_flag && !quit_flag &&!loose_flag) {
     current_utc_time(&init_frame_time);
 	  select_timeout.tv_sec = 0;
@@ -500,30 +500,20 @@ int main(int argc, char *argv[])
      }
      /* enable blocking getch() */
      timeout(-1);
-     do{
-     msg_type = receive_update(con, data_struct, data_size, &select_timeout);
-     }while( msg_type != HIGHSCORES);
-      Highscore * h = (Highscore*) &data_struct[1];
-      int j = 0;
+     current_utc_time(&end);
+
       wclear(win_side);
       win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
       wmove(win_side,1,1);
-      wprintw(win_side,"Highscores:");
-      i = 2;
-      while(strcmp(h[j].name,"")!=0){
-        wmove(win_side,i++,1);
-        wprintw(win_side,"%s %d",h[j].name,h[j].score);//print scores
-        j++;
-      }
+
       wrefresh(win_side);
 
           if(win_flag){
-
-        if( 1 /*win_flag  && tu score es mejor que alguno de los 10 mejores*/){
+        int time = (end.tv_sec - init.tv_sec);
           char nombre[100] = " ";char d;
           int j = 0;
           wmove(win_side,i+2,1);
-          wprintw(win_side,"Su score es : ");
+          wprintw(win_side,"Su tiempo es : %d",time);
           wmove(win_side,i+4,1);
           wprintw(win_side,"Ingrese un nombre de ");
           wmove(win_side,i+5,1);
@@ -549,11 +539,9 @@ int main(int argc, char *argv[])
             wprintw(win_side,"correctamente! ",nombre);
             wmove(win_side, i+11, 1);
             sprintf(a.name,nombre);
-            a.score = 1000;
+            a.score = time;
             send_highscore(con,&a);
-         }else{
-           wmove(win_side,i+1,1);
-         }
+
         wprintw(win_side, "PRESS ENTER TO EXIT");
         wrefresh(win_side);
      }else{

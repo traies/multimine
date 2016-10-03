@@ -28,7 +28,7 @@
 #define FALSE 0
 #define COLS 50
 #define ROWS 20
-#define MINES 100
+#define MINES 10
 #define BUF_SIZE 50000
 #define DEFAULT_PLAYERS 1
 
@@ -241,9 +241,6 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 
 
      open_database();
-     insert_highscore("hola",520);
-     insert_highscore("hoa",450);
-     insert_highscore("hla",400);
 
 
      while(!q && pleft > 0)  {
@@ -338,8 +335,8 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
         msg_type = HIGHSCORES;
         highscore_struct[0] = msg_type;
         highscore_struct[1] = count;
-		    size = sizeof(Highscore) *count;
-		    memcpy(&highscore_struct[1+sizeof(int)], h, size);
+	size = sizeof(Highscore) *count;
+        memcpy(&highscore_struct[1+sizeof(int)], h, size);
 	  write(pths[player]->w_fd, highscore_struct, size + 1);
         h_flag = false;
       }else if (h_add_flag){
@@ -360,16 +357,6 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 			      continue;
 			 }
 			 write(pths[i]->w_fd, data_struct, sizeof(EndGameStruct) + 1);
-
-                         int count,size;
-                       h = get_highscores(&count);
-                        msg_type = HIGHSCORES;
-                        highscore_struct[0] = msg_type;
-                        highscore_struct[1] = count;
-                       size = sizeof(Highscore) *count;
-                       memcpy(&highscore_struct[1+sizeof(int)], h, size);
-                       printf("TE MANDOO\n" );
-                         write(pths[i]->w_fd, highscore_struct, size + 1);
 
 		    }
 	       }
