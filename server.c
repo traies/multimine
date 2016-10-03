@@ -233,19 +233,23 @@ int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set, 
 int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[8], int64_t players)
 {
      fd_set r_set;
-     int8_t q, uflag = false, msg_type, endflag = false;
+     int8_t q, uflag = false, msg_type, endflag = false,h_flag=false;
      int64_t nfds = 0, sflag, rlen, data_size;
      UpdateStruct * us;
      QueryStruct * qs;
      EndGameStruct es;
      struct timeval timeout;
      char * data_struct;
+     char * highscore_struct;
+     int player;
+     Highscore * h;
 
      /* init data buffer */
      data_size = sizeof(UpdateStruct) + msize * 4 + 1;
      data_struct = malloc(data_size);
-     us = malloc(data_size);
-     if (!data_struct || !us) {
+      us = malloc(data_size);
+     highscore_struct = malloc(sizeof(Highscore)*10 + 1 +sizeof(int));
+     if (!data_struct || !us || !highscore_struct) {
 	  free_minefield(minef);
 	  return MEMORY_ERROR;
      }
@@ -254,7 +258,6 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
      /* set select timeout */
      timeout.tv_sec = 5;
      timeout.tv_usec = 0;
-
      /* fill in read file descriptor set */
      for (int i = 0; i < players; i++) {
 	  if (nfds < pths[i]->r_fd) {
@@ -306,6 +309,10 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 					uflag = true;
 				   }
 			      }
+            else if (data_struct[0] == HIGHSCORE){
+              player= i;
+              h_flag = true;
+            }
 			 }
 			 else if (rlen == 0) {
 			      /* client disconnected */
@@ -339,7 +346,24 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 			 write(pths[i]->w_fd, data_struct, data_size + 1);
 		    }
 		    us->len = 0;
-	       }
+      }
+         else if (h_flag){
+        int count,size;
+        open_database();
+        insert_highscore("hola",520);
+        insert_highscore("hoa",450);
+        insert_highscore("hla",400);
+        insert_highscore("",52);
+       h = get_highscores(&count);
+        msg_type = HIGHSCORE;
+        highscore_struct[0] = msg_type;
+        highscore_struct[1] = count;
+		    size = sizeof(Highscore) *count;
+		    memcpy(&highscore_struct[1+sizeof(int)], h, size);
+	  write(pths[player]->w_fd, highscore_struct, size + 1);
+        h_flag = false;
+      }
+
 	       if (endflag) {
 		    /* end game conditions where met */
 		    msg_type = ENDGAME;
@@ -357,7 +381,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 	  }
      }
      /* close pthreads */
-     
+
      for (int i = 0; i < players; i++) {
 	  if (pths[i] == NULL) {
 	       continue;
@@ -367,7 +391,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 	  pths[i]->info_killflag = true;
 	  pthread_join(pths[i]->p_info, NULL);
      }
-     
+
      free_minefield(minef);
      return 0;
 
@@ -533,16 +557,16 @@ int main(int argc, char * argv[])
 		// mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
 		count++;
 	   }
-	   
+
 	   mm_disconnect_listener(lp);
-	   
+
 	   lp = NULL;
 
 	   if (count < players) {
 		/* connections failed */
 		srv_exit(NULL, 0);
 	   }
-	   
+
 	   host_game(pths, players, rows, cols, mines);
       }
      return 0;

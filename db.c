@@ -26,7 +26,6 @@ int open_database(){
     sqlite3_exec(db, "drop TABLE WIN_LOSE", NULL, NULL, &error);
 
     sqlite3_exec(db, "CREATE TABLE WIN_LOSE(name text ,wins int not null,loses int not null,primary key(name,wins,loses))", NULL, NULL, &error);
-
     return 0;
 }
 

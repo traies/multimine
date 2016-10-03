@@ -224,7 +224,7 @@ int main(int argc, char *argv[])
      int8_t selret;
      char * data_struct;
      int data_size;
-     
+
      timeout.tv_sec = 20;
 
      timeout.tv_usec = 0;
@@ -279,7 +279,7 @@ int main(int argc, char *argv[])
      int8_t msg_type, x, y;
      EndGameStruct * es;
      void * t_aux;
-     
+
      cols = is->cols;
      rows = is->rows;
      mines= is->mines;
@@ -477,9 +477,9 @@ int main(int argc, char *argv[])
 	  default:
 	       break;
 	  }
-	  
+
 	  msg_type = receive_update(con, data_struct, data_size, &select_timeout);
-	  
+
 	  if (msg_type == UPDATEGAME) {
 	       us = (UpdateStruct *) &data_struct[1];
 	       count = us->len;
@@ -505,7 +505,7 @@ int main(int argc, char *argv[])
 			 mine_buffer[auxx][auxy][0] = auxn;
 			 mine_buffer[auxx][auxy][1] = us->tiles[i].player;
 			 draw_tile(win, auxy,auxx,auxn, us->tiles[i].player + 3);
-			 
+
 		    }
 
 		    us->len = 0;
