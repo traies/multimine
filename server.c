@@ -392,6 +392,14 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 			      continue;
 			 }
 			 write(pths[i]->w_fd, data_struct, sizeof(EndGameStruct) + 1);
+			     int count,size;
+      			 h = get_highscores(&count);
+        		msg_type = HIGHSCORES;
+        		highscore_struct[0] = msg_type;
+        		highscore_struct[1] = count;
+		   	 size = sizeof(Highscore) *count;
+		    	memcpy(&highscore_struct[1+sizeof(int)], h, size);
+	  		write(pths[i]->w_fd, highscore_struct, size + 1);
 		    }
 	       }
 	  }
