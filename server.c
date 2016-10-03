@@ -98,16 +98,21 @@ void * attend(void * a)
      Attender * attr = (Attender *) a ;
      Connection * con = attr->con;
      int buf_size = attr->buf_size, w_fd = attr->w_fd, len;
-     int8_t * buf = malloc(buf_size), * killflag = attr->killflag;
+     int8_t * buf, * killflag = attr->killflag;
      int sel;
      struct timeval timeout;
+
+     buf = malloc (buf_size);
+     if (!buf) {
+             return NULL;
+     }
      timeout.tv_sec = 1;
      timeout.tv_usec = 0;
 
      free(a);
      /* expects blocking read */
      while (!*killflag) {
-	  if ((len = receive(con, buf, 25/*buf_size*/, &timeout)) > 0) {
+	  if ((len = receive(con, buf, buf_size, &timeout)) > 0) {
 	       write(w_fd, buf, len);
 	  }
 	  else if (len == -1) {
@@ -340,7 +345,9 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 			 FD_SET(pths[i]->r_fd, &r_set);
 		    }
 	       }
-	       endflag = check_win_state(minef, &es);
+               if(!endflag){
+	                      endflag = check_win_state(minef, &es);
+                }
 	       if (uflag) {
 		    /* send updates to players */
 
@@ -371,11 +378,10 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
       }else if (h_add_flag){
      h = (Highscore *)&data_struct[1];
      insert_highscore(h[0].name,h[0].score);
-     h_add_flag = false;
        q = true;
    }
 
-	       if (endflag) {
+	       if (endflag && !h_add_flag) {
 		    /* end game conditions where met */
 		    msg_type = ENDGAME;
 		    data_struct[0] = msg_type;
@@ -398,10 +404,9 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 	  }
 	  pths[i]->attr_killflag = true;
 	  pthread_join(pths[i]->p_attr, NULL);
-	  pths[i]->info_killflag = true;
+          pths[i]->info_killflag = true;
 	  pthread_join(pths[i]->p_info, NULL);
      }
-
      free_minefield(minef);
      return 0;
 
@@ -562,7 +567,7 @@ int main(int argc, char * argv[])
 	   while ( count < players && (c = mm_accept(lp)) != NULL) {
 		/* established conection on c, needs to create thread */
 		printf("conexion establecida. Creando thread.\n");
-		add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c, sizeof(QueryStruct) + 1, us_size);
+		add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c, sizeof(Highscore) + 1, us_size);
 		printf("thread creado..\n");
 		// mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
 		count++;

@@ -455,7 +455,6 @@ int8_t check_win_state(Minefield * m, EndGameStruct * es)
      if (utiles <= 0 || pleft == 0) {
 	  es->winner_id = pscores[0][0];
 	  es->players = get_scores(m, es->player_scores);
-	  printf("winner id: %d \n", es->winner_id);
 	  return true;
      }
      if (players > 1) {
