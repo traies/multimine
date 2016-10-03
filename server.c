@@ -36,7 +36,6 @@ typedef struct ClientPthreads
 {
      pthread_t p_attr;
      pthread_t p_info;
-     int8_t info_killflag, attr_killflag;
      int r_fd;
      int w_fd;
 } ClientPthreads;
@@ -58,38 +57,11 @@ int64_t update_scores(Minefield * m, UpdateStruct * us )
      return 0;
 }
 
-void srv_exit(ClientPthreads * pths[], int cli_i)
-{
-     if (pths == NULL || cli_i == 0) {
-	  return;
-     }
-     for (int i = 0; i < cli_i; i++) {
-	  /* killing threads */
-	  if (pths[i] == NULL) {
-	       continue;
-	  }
-	  pths[i]->attr_killflag = TRUE;
-	  pthread_join(pths[i]->p_attr, NULL);
-	  pths[i]->info_killflag = TRUE;
-	  pthread_join(pths[i]->p_info, NULL);
-     }
-     exit(0);
-}
-
-/* DEBUG: tidy FIFO delete handler */
-void sig_handler(int signo)
-{
-     if (signo == SIGINT){
-	  srv_exit(NULL, 0);
-     }
-     return;
-}
 
 typedef struct attender
 {
      Connection * con;
      int w_fd, buf_size;
-     int8_t * killflag;
 } Attender;
 
 /* attendants threads run here */
@@ -98,7 +70,7 @@ void * attend(void * a)
      Attender * attr = (Attender *) a ;
      Connection * con = attr->con;
      int buf_size = attr->buf_size, w_fd = attr->w_fd, len;
-     int8_t * buf, * killflag = attr->killflag;
+     int8_t * buf;
      int sel;
      struct timeval timeout;
 
@@ -111,7 +83,7 @@ void * attend(void * a)
 
      free(a);
      /* expects blocking read */
-     while (!*killflag) {
+     while (true) {
 	  if ((len = receive(con, buf, buf_size, &timeout)) > 0) {
 	       write(w_fd, buf, len);
 	  }
@@ -130,7 +102,6 @@ typedef struct Informer
 {
      Connection * con;
      int r_fd, buf_size;
-     int8_t * killflag;
 } Informer;
 
 /* informer threads run here */
@@ -140,7 +111,6 @@ void * inform(void * a)
      Connection * con = info->con;
      int r_fd = info->r_fd;
      int8_t buf[BUF_SIZE];
-     int8_t * killflag = info->killflag;
      int64_t len, buf_size = BUF_SIZE;
      fd_set fds;
      UpdateStruct * us;
@@ -149,7 +119,7 @@ void * inform(void * a)
      timeout.tv_usec = 0;
 
      /* expects blocking read */
-     while(!(*killflag)) {
+     while(true) {
 	  select(r_fd + 1, &fds, NULL, NULL, &timeout);
 	  timeout.tv_sec = 1;
 	  timeout.tv_usec = 0;
@@ -204,8 +174,6 @@ int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set, 
 	  free(cli_p);
 	  return -1;
      }
-     cli_p->attr_killflag = FALSE;
-     cli_p->info_killflag = FALSE;
      attender->con = con;
      informer->con = con;
      pipe(attr_fd);
@@ -214,8 +182,6 @@ int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set, 
      informer->r_fd = info_fd[0];
      attender->buf_size = attr_buf_size;
      informer->buf_size = info_buf_size;
-     attender->killflag = &(cli_p->attr_killflag);
-     informer->killflag = &(cli_p->info_killflag);
      pthread_create(&pt_attr, NULL, attend, attender);
      pthread_create(&pt_info, NULL, inform, informer);
      cli_p->p_attr = pt_attr;
@@ -239,7 +205,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 {
      fd_set r_set;
      int8_t q, uflag = false, msg_type, endflag = false,h_flag=false,h_add_flag = false;
-     int64_t nfds = 0, sflag, rlen, data_size;
+     int64_t nfds = 0, sflag, rlen, data_size, pleft ;
      UpdateStruct * us;
      QueryStruct * qs;
      EndGameStruct es;
@@ -248,7 +214,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
      char * highscore_struct;
      int player;
      Highscore * h;
-
+     pleft = players;
      /* init data buffer */
      data_size = sizeof(UpdateStruct) + msize * 4 + 1;
      data_struct = malloc(data_size);
@@ -280,7 +246,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
      insert_highscore("hla",400);
 
 
-     while(!q) {
+     while(!q && pleft > 0)  {
 	  /* select on pthreads read */
 	  sflag = select(nfds, &r_set, NULL, NULL, &timeout);
 	  /* reset timeout */
@@ -299,7 +265,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 	  }
 	  else if (sflag < 0) {
 	       /* an error ocurred */
-	       srv_exit(pths,players);
+	       return -1;
 	  }
 	  else {
 	       /* a fd is ready */
@@ -337,6 +303,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 			      FD_CLR(pths[i]->r_fd, &r_set);
 			      free(pths[i]);
 			      pths[i] = NULL;
+            pleft--;
 			 }
 
 		    }
@@ -407,17 +374,6 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 		    }
 	       }
 	  }
-     }
-     /* close pthreads */
-
-     for (int i = 0; i < players; i++) {
-	  if (pths[i] == NULL) {
-	       continue;
-	  }
-	  pths[i]->attr_killflag = true;
-	  pthread_join(pths[i]->p_attr, NULL);
-          pths[i]->info_killflag = true;
-	  pthread_join(pths[i]->p_info, NULL);
      }
      free_minefield(minef);
      return 0;
@@ -499,10 +455,13 @@ int main(int argc, char * argv[])
 
 
      if (argc > 1) {
-	  sscanf(argv[1],"%d",&players);
-     }
-     else {
-	  players = DEFAULT_PLAYERS;
+	      sscanf(argv[1],"%d",&players);
+        if(players > 7 || 0 >= players ){
+          printf("%d no es un numero valido. Inserte un numero de jugadores del 1 al 7",players);
+          return 1;
+        }
+     } else {
+	      players = DEFAULT_PLAYERS;
      }
      us_size = cols * rows * 4 + sizeof(UpdateStruct);
      us = malloc(us_size);
@@ -520,21 +479,6 @@ int main(int argc, char * argv[])
 
      timeout.tv_sec = 10;
      timeout.tv_usec = 0;
-
-     signal(SIGINT,sig_handler);
-
-     //system("rm /tmp/mine_serv");
-
-     system("rm /tmp/mq");
-     mq_unlink("/mq");
-
-     /* setting fifo path */
-     sprintf(fifo, "/tmp/mine_serv");
-
-     srv_addr = fifo;
-
-
-     srv_addr_mq ="/tmp/mq";
 
      char * addr = configuration("config",mm_commtype(),3);
 
@@ -558,21 +502,17 @@ int main(int argc, char * argv[])
      mm_disconnect(c);
        mqd_t mqd = mq_open("/mq",O_WRONLY);
 
-
-
        mm_disconnect_listener(lp);
 
 
 
      /* open connection */
      addr = configuration("config",mm_commtype(),1);
-
-      while (true) {
-	   count = 0;
-	   lp = mm_listen(addr);
-	   if (lp == NULL) {
-		printf("fracaso\n");
-		return 0;
+     count=0;
+     lp=mm_listen(addr);
+     if(lp==NULL){
+		   printf("fracaso\n");
+		  return 0;
 	   }
 
 	   /* wait for connections */
@@ -591,11 +531,11 @@ int main(int argc, char * argv[])
 
 	   if (count < players) {
 		/* connections failed */
-		srv_exit(NULL, 0);
+  	   return -1;
 	   }
 
 	   host_game(pths, players, rows, cols, mines);
-      }
+
      return 0;
 }
 /*
