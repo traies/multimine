@@ -118,7 +118,7 @@ Connection * mm_accept(Listener_p l){
   return newConnection(n_fd);
 }
 
-
+/*
 int64_t mm_read(Connection * c,char buf[], int64_t size){
   int64_t len, r_len;
   int64_t s;
@@ -132,7 +132,38 @@ int64_t mm_read(Connection * c,char buf[], int64_t size){
   free(tmp);
   return len;
 }
+*/
 
+int64_t mm_read(Connection * c, char buf[], int64_t size){
+
+     int64_t len, r_len, total_len = 0;
+     int64_t s = 0;
+  
+     if ((len = read(c->fd,(char *) &s,sizeof(int64_t))) == 0) {
+	  return 0;
+     }
+     if (len < 0) {
+	  return -1;
+     }
+     char * tmp = malloc(s);
+     if (!tmp) {
+	  return -1;
+     }
+     while (total_len < s) {
+	  r_len = read(c->fd,&tmp[total_len],s - total_len);
+	  if (r_len == 0) {
+	       return 0;
+	  }
+	  if (r_len < 0) {
+	       return -1;
+	  }
+	  total_len += r_len;
+     }
+     memcpy(buf,tmp,s);
+     free(tmp);
+     return s;
+}
+ 
 int64_t mm_write(Connection * c, const char * m,int64_t size){
   return write_msg(c->fd,m,size);
 }

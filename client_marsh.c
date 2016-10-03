@@ -180,7 +180,7 @@ int8_t receive_update(Connection * c, char * data_struct, int64_t size, struct t
 	  buf_size = size;
      }
      if ((read = mm_select(c,timeout) ) > 0) {
-	  ret = mm_read(c, buf, MAX_BUF_SIZE);
+	  ret = mm_read(c, buf, size);
      }
      else {
 	  return NOREAD;
@@ -191,6 +191,7 @@ int8_t receive_update(Connection * c, char * data_struct, int64_t size, struct t
      if (buf[0] == UPDATEGAME) {
 
 	  if (update_unmarsh(data_struct, buf) > 0){
+	       
 	       ret = UPDATEGAME;
 	  }
 	  else {
