@@ -501,37 +501,43 @@ int main(int argc, char *argv[])
      /* enable blocking getch() */
      timeout(-1);
 
-     if(win_flag){
-       wclear(win_side);
-       win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
-       wmove(win_side,1,1);
-       wprintw(win_side, "YOU WON!");
-        wmove(win_side,3,1);
-        wprintw(win_side,"Highscores:");
-        for(i = 4;i <6 ;i++){
-          wmove(win_side,i,1);
-          wprintw(win_side,"PEDRITO 5500");//print scores
-        }
-        wrefresh(win_side);
+     msg_type = receive_update(con, data_struct, data_size, &select_timeout);
+         Highscore * h = (Highscore*) &data_struct[1];
+         int j = 0;
+         wclear(win_side);
+         win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
+         wmove(win_side,1,1);
+         wprintw(win_side,"Highscores:");
+         i = 2;
+         while(strcmp(h[j].name,"")!=0){
+           wmove(win_side,i++,1);
+           wprintw(win_side,"%s %d",h[j].name,h[j].score);//print scores
+           j++;
+         }
+         wmove(win_side,i+1,1);
+         wprintw(win_side,"Presione H para volver");
+         wrefresh(win_side);
+          if(win_flag){
+
         if( 1 /*win_flag  && tu score es mejor que alguno de los 10 mejores*/){
           char nombre[100] = " ";char d;
           int j = 0;
-          wmove(win_side,i+1,1);
+          wmove(win_side,i+2,1);
           wprintw(win_side,"Su score es : ");
-          wmove(win_side,i+3,1);
-          wprintw(win_side,"Ingrese un nombre de ");
           wmove(win_side,i+4,1);
+          wprintw(win_side,"Ingrese un nombre de ");
+          wmove(win_side,i+5,1);
           wprintw(win_side,"hasta 10 caracteres:");
-          wmove(win_side,i+6,1);
+          wmove(win_side,i+7,1);
           wrefresh(win_side);
           while((d=toupper(getch())) != '\n' ){
-            if(d == 7 && j>0){//backspace
-              wmove(win_side,i+6,j);
+            if(d == 127 && j>0){//backspace
+              wmove(win_side,i+7,j);
               wprintw(win_side," ");
-              wmove(win_side,i+6,j--);
+              wmove(win_side,i+7,j--);
               wrefresh(win_side);
             }
-            else if(j<10 && d != 7){
+            else if(j<10 && d != 127){
             nombre[j++]=d;
              wprintw(win_side,"%c",d);
              wrefresh(win_side);
@@ -553,7 +559,13 @@ int main(int argc, char *argv[])
      }else{
        wprintw(win_side, "YOU LOSE!");
        wmove(win_side, 5 + es->players + 2, 1);
-       wprintw(win_side, "PRESS ENTER TO EXIT");
+       wprintw(win_side, "PRESS ENTER TO EXIT ");
+       if(players == 1){
+               printf("entro\n");
+               sprintf(a.name,"");
+               a.score = -1;
+               send_highscore(con,&a);
+       }
      }
 
      wrefresh(win_side);
