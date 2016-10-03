@@ -1,4 +1,4 @@
-#include "comms.h"
+#include <comms.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -25,7 +25,7 @@ struct listener {
 
 static Listener_p newListener(int fd);
 static Connection * newConnection(int fd);
-static int write_msg(int w_fd,const char * m,int64_t size);
+static int64_t write_msg(int w_fd,const char * m,int64_t size);
 
 Listener_p mm_listen(char * addr){
   struct addrinfo hints, *res;
@@ -119,8 +119,8 @@ Connection * mm_accept(Listener_p l){
 }
 
 
-int mm_read(Connection * c, char buf[], int size){
-     int len, r_len;
+int64_t mm_read(Connection * c,char buf[], int64_t size){
+  int64_t len, r_len;
   int64_t s;
   
   if ((len = read(c->fd,(char *) &s,sizeof(int64_t))) <= 0) {
@@ -134,7 +134,7 @@ int mm_read(Connection * c, char buf[], int size){
   return len;
 }
 
-int mm_write(Connection * c, const char * m,int size){
+int64_t mm_write(Connection * c, const char * m,int64_t size){
   return write_msg(c->fd,m,size);
 }
 
@@ -150,8 +150,8 @@ static Listener_p newListener(int fd){
   return l;
 }
 
-static int write_msg(int w_fd,const char * m,int64_t size){
-     int ret;
+static int64_t write_msg(int w_fd,const char * m,int64_t size){
+     int64_t ret;
      char * buf = calloc(1,sizeof(int64_t) + size), * b;
      b = buf;
      memcpy(b, &size, sizeof(int64_t));
