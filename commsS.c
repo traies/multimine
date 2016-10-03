@@ -122,12 +122,19 @@ int mm_write(Connection * c, const char * m,int size){
 
 int mm_select(Connection * c, struct timeval * timeout){
   fd_set r_set;
+  int ret;
   if (c == NULL){
     return -1;
   }
   FD_SET(c->fd, &r_set);
-  select(c->fd + 1, &r_set, NULL, NULL, timeout);
-  return FD_ISSET(c->fd, &r_set) ? 1: -1;
+  ret = select(c->fd + 1, &r_set, NULL, NULL, timeout);
+  if (ret == 0) {
+       return 0;
+  }
+  if (ret > 0) {
+       return FD_ISSET(c->fd, &r_set);
+  }
+  return -1;
 }
 
 static Connection * newConnection(int fd){
