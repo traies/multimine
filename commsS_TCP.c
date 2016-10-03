@@ -1,4 +1,4 @@
-#include "comms.h"
+#include <comms.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -58,7 +58,7 @@ Connection * mm_connect(char * addr){
 
   sfd=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
   if(sfd==-1){
-       
+
     return NULL;
   }
   char tmp[64];
@@ -120,32 +120,33 @@ Connection * mm_accept(Listener_p l){
 
 
 int mm_read(Connection * c, char buf[], int size){
+
      int len, r_len, total_len = 0;
-  int64_t s = 0;
+     int64_t s = 0;
   
-  if ((len = read(c->fd,(char *) &s,sizeof(int64_t))) == 0) {
-     return 0;
-  }
-  if (len < 0) {
-       return -1;
-  }
-  char * tmp = malloc(s);
-  if (!tmp) {
-       return -1;
-  }
-  while (total_len < s) {
-       r_len = read(c->fd,&tmp[total_len],s - total_len);
-       if (r_len == 0) {
-	    return 0;
-       }
-       if (r_len < 0) {
-	    return -1;
-       }
-       total_len += r_len;
-  }
-  memcpy(buf,tmp,s);
-  free(tmp);
-  return s;
+     if ((len = read(c->fd,(char *) &s,sizeof(int64_t))) == 0) {
+	  return 0;
+     }
+     if (len < 0) {
+	  return -1;
+     }
+     char * tmp = malloc(s);
+     if (!tmp) {
+	  return -1;
+     }
+     while (total_len < s) {
+	  r_len = read(c->fd,&tmp[total_len],s - total_len);
+	  if (r_len == 0) {
+	       return 0;
+	  }
+	  if (r_len < 0) {
+	       return -1;
+	  }
+	  total_len += r_len;
+     }
+     memcpy(buf,tmp,s);
+     free(tmp);
+     return s;
 }
 
 int mm_write(Connection * c, const char * m,int size){
