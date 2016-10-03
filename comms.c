@@ -191,13 +191,19 @@ Connection * mm_accept(Listener_p l){
 int mm_select(Connection * c, struct timeval * timeout)
 {
      fd_set r_set;
+     int ret;
      if (c == NULL) {
 	  return -1;
      }
      FD_SET(c->r_fd, &r_set);
-     select(c->r_fd + 1, &r_set, NULL, NULL, timeout);
-     return FD_ISSET(c->r_fd, &r_set) ? 1: -1;
-
+     ret = select(c->r_fd + 1, &r_set, NULL, NULL, timeout);
+     if (ret == 0) {
+          return 0;
+     }
+     if (ret > 0) {
+	  return FD_ISSET(c->r_fd, &r_set);
+     }
+     return -1;
 }
 
 int mm_read(Connection * c, char buf[], int size)
@@ -249,5 +255,5 @@ static Listener * newListener(int fd,char * p){
 }
 
 int mm_commtype(){
-  return COMM_SOCK_FIFO;
+  return COMM_FIFO;
 }
