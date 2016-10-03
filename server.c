@@ -28,7 +28,7 @@
 #define FALSE 0
 #define COLS 50
 #define ROWS 20
-#define MINES 1
+#define MINES 100
 #define BUF_SIZE 50000
 #define DEFAULT_PLAYERS 1
 

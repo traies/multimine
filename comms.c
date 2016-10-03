@@ -98,11 +98,11 @@ Connection * mm_connect(char * addr){
   memcpy(msg,r_addr,strlen(r_addr)+1);
   memcpy(msg+strlen(r_addr)+1,w_addr,strlen(w_addr)+1);
   write_conn_msg(w_fd,msg,size);
-  
+
   int r=open(r_addr,O_RDONLY);
   void * buf = malloc(sizeof(Message));
   int w=open(w_addr,O_WRONLY);
-  
+
   to.tv_sec=TIMEOUT;
   to.tv_usec=0;
   FD_SET(r, &fds);
@@ -111,7 +111,7 @@ Connection * mm_connect(char * addr){
 	   read(r,(char *)buf,sizeof(Message));
 	   Message * msg = (Message *) buf;
        if(msg->type==ACK_CONN_PCK){
-		puts("hola");
+		       puts("hola");
         c = newConnection(w,r);
         free(buf);
         return c;
@@ -126,7 +126,7 @@ void mm_disconnect(Connection * c){
   int pid = getpid();
   char buf[20];
   snprintf(buf, 20, "%d", pid);
-  write_msg(c->w_fd,buf,DELETE_CONN_PCK,strlen(buf)+1);
+  //write_msg(c->w_fd,buf,DELETE_CONN_PCK,strlen(buf)+1);
   close(c->w_fd);
   close(c->r_fd);
   free(c);
@@ -190,7 +190,7 @@ Connection * mm_accept(Listener_p l){
 }
 
 int mm_select(Connection * c, struct timeval * timeout)
-{	
+{
      fd_set r_set;
      int ret;
      if (c == NULL) {
@@ -209,19 +209,27 @@ int mm_select(Connection * c, struct timeval * timeout)
 
 int64_t mm_read(Connection * c, char buf[], int64_t size)
 {
-    int64_t len;
+    int64_t len, total_len = 0, r_len;
     Message m;
 
-    if ((len = read(c->r_fd,(char *) &m,sizeof(Message))) < 0) {
-	    return -1;
+    if ((len = read(c->r_fd,(char *) &m,sizeof(Message))) == 0) {
+	    return 0;
+    }
+    if (len < 0 || size < m.size) {
+      return -1;
+    }
+    while (total_len < m.size) {
+      r_len = read(c->r_fd, &buf[total_len], m.size - total_len);
+      if (r_len == 0) {
+        return 0;
+      }
+      if (r_len < 0) {
+        return -1;
+      }
+      total_len += r_len;
     }
 
-    char * tmp = malloc(m.size);
-    read(c->r_fd,tmp,m.size);
-
-    len = min(size, m.size);
-    memcpy(buf,tmp,len);
-    free(tmp);
+    /*
     if(m.type == DELETE_CONN_PCK){
   	  int o_pid=atoi(buf);
   	  int pid = getpid();
@@ -234,8 +242,8 @@ int64_t mm_read(Connection * c, char buf[], int64_t size)
      }
      else if (m.type != NORMAL_PCK){
 	      return -1;
-     }
-     return len;
+     }*/
+     return m.size;
 }
 
 static Connection * newConnection(int w,int r){
