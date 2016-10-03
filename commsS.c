@@ -23,7 +23,7 @@ struct listener {
 
 static Listener_p newListener(int fd);
 static Connection * newConnection(int fd);
-static int write_msg(int w_fd,const char * m,int size);
+static int64_t write_msg(int w_fd,const char * m,int64_t size);
 /*
 ** This function creates a socket and binds
 ** it to the address providen. The file descriptor
@@ -100,24 +100,23 @@ Connection * mm_accept(Listener_p l){
 ** The folowing functions allow read and write operations
 ** on an established connection.
 */
-int mm_read(Connection * c, char buf[], int size)
+int64_t mm_read(Connection * c, char buf[], int64_t size)
 {
-    int len;
-    Message m;
-    if ((len = read(c->fd,(char *) &m,sizeof(Message))) < 0) {
-	     return -1;
-    }
-    char * tmp = malloc(m.size);
-    read(c->fd,tmp,m.size);
-    len = min(size, m.size);
-    memcpy(buf,tmp,len);
-    free(tmp);
-    return len;
+  int64_t len, r_len;
+  int64_t s;
+  if ((len = read(c->fd,(char *) &s,sizeof(int64_t))) <= 0) {
+     return 0;
+  }
+  char * tmp = malloc(s);
+  r_len = read(c->fd,tmp,s);
+  len = min(size, r_len);
+  memcpy(buf,tmp,len);
+  free(tmp);
+  return len;
 }
 
-int mm_write(Connection * c, const char * m,int size){
-  write_msg(c->fd,m,size);
-  return size;
+int64_t mm_write(Connection * c, const char * m,int64_t size){
+  return write_msg(c->fd,m,size);
 }
 
 int mm_select(Connection * c, struct timeval * timeout){
@@ -149,16 +148,16 @@ static Listener_p newListener(int fd){
   return l;
 }
 
-static int write_msg(int w_fd,const char * m,int size){
-
-  Message * msg = calloc(sizeof(Message),1);
-  msg->size=size;
-  write(w_fd,msg,sizeof(Message));
-  if(size>0){
-    write(w_fd,m,size);
-  }
-  free(msg);
-  return size;
+static int64_t write_msg(int w_fd,const char * m,int64_t size){
+     int64_t ret;
+     char * buf = calloc(1,sizeof(int64_t) + size), * b;
+     b = buf;
+     memcpy(b, &size, sizeof(int64_t));
+     b+=sizeof(int64_t);
+     memcpy(b, m, size);
+     ret = write(w_fd,buf,sizeof(int64_t)+size);
+     free(buf);
+     return ret;
 }
 
 int mm_commtype(){

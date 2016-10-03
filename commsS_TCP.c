@@ -122,7 +122,6 @@ Connection * mm_accept(Listener_p l){
 int64_t mm_read(Connection * c,char buf[], int64_t size){
   int64_t len, r_len;
   int64_t s;
-
   if ((len = read(c->fd,(char *) &s,sizeof(int64_t))) <= 0) {
      return 0;
   }

@@ -14,6 +14,7 @@
 
 #include <stdint.h>
 #include <sys/time.h>
+#include <sys/types.h>
 
 typedef struct connection Connection ;
 typedef struct listener Listener;
@@ -51,12 +52,12 @@ Connection * mm_accept(Listener_p l);
 ** Reads bytes from a connection. An int, where the
 ** amount of bites read will be completed, must be passed.
 */
-int mm_read(Connection * c, char buf[], int size);
+int64_t mm_read(Connection * c, char buf[], int64_t size);
 
 /*
 ** Writes size bytes of m to the given connection.
 */
-int mm_write(Connection * c, const char * m,int size);
+int64_t mm_write(Connection * c, const char * m,int64_t size);
 
 /*
 ** Returns the version of this header's implementation
