@@ -1,4 +1,4 @@
-#include "comms.h"
+#include <comms.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -58,7 +58,7 @@ Connection * mm_connect(char * addr){
 
   sfd=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
   if(sfd==-1){
-       
+
     return NULL;
   }
   char tmp[64];
@@ -122,7 +122,7 @@ Connection * mm_accept(Listener_p l){
 int mm_read(Connection * c, char buf[], int size){
      int len, r_len;
   int64_t s;
-  
+
   if ((len = read(c->fd,(char *) &s,sizeof(int64_t))) <= 0) {
      return 0;
   }

@@ -521,7 +521,7 @@ int main(int argc, char * argv[])
 
      srv_addr = fifo;
 
-     /*
+
      srv_addr_mq ="/tmp/mq";
 
      char * addr = configuration("config",mm_commtype(),3);
@@ -549,11 +549,11 @@ int main(int argc, char * argv[])
 
 
        mm_disconnect_listener(lp);
-     */
+
 
 
      /* open connection */
-      char * addr = configuration("config",mm_commtype(),1);
+     addr = configuration("config",mm_commtype(),1);
 
       while (true) {
 	   count = 0;
@@ -569,7 +569,7 @@ int main(int argc, char * argv[])
 		printf("conexion establecida. Creando thread.\n");
 		add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c, sizeof(Highscore) + 1, us_size);
 		printf("thread creado..\n");
-		// mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
+		 mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
 		count++;
 	   }
 
