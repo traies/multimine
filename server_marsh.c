@@ -109,7 +109,6 @@ int64_t highscore_unmarsh(char data_struct[], char buf[])
 {
      Highscore * h = (Highscore*) &data_struct[1];
      data_struct[0] = buf[0];
-     printf("%s\n",buf+1 );
      memcpy(&h->name, &buf[1], 20);
      memcpy(&h->score, &buf[21], sizeof(int));
      return sizeof(Highscore) + 1;

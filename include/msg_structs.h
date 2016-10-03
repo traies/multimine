@@ -18,15 +18,9 @@ extern const int8_t HIGHSCORE_ADD;
 typedef struct Highscore
 {
   char name[20];
-  int score;
+  int64_t score;
 }Highscore;
 
-typedef struct Stat
-{
-  char name[20];
-  int wins;
-  int loses;
-}Stat;
 
 typedef struct InitStruct
 {
