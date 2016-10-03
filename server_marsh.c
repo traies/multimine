@@ -61,10 +61,12 @@ static int64_t highscore_marsh(char buf[], const Highscore * h)
      *buf++ = HIGHSCORES;
      int i = 0;
      while(strcmp(h[i].name,"")!=0){
-       memcpy(buf, &h[i++], sizeof(Highscore));
-       buf+= sizeof(Highscore);
+       memcpy(buf, &h[i], 20);
+       buf+= 20;
+	memcpy(buf, &(h[i++]+20), sizeof(int64_t));
+       buf+= sizeof(int64_t);
      }
-     return 1 + sizeof(Highscore)*i;
+     return 1 + (20+sizeof(int64_t))*i;
 }
 
 static int64_t send(Connection * c, void * data, int64_t (*marsh)(void*, const void*))
