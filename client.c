@@ -506,25 +506,25 @@ int main(int argc, char *argv[])
       win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
       wmove(win_side,1,1);
 
-      wrefresh(win_side);
 
           if(win_flag){
         int time = (end.tv_sec - init.tv_sec);
           char nombre[100] = " ";char d;
           int j = 0;
-          wmove(win_side,i+2,1);
-          wprintw(win_side,"Su tiempo es : %d",time);
-          wmove(win_side,i+4,1);
+          wprintw(win_side,"YOU WIN!");
+            wmove(win_side,2,1);
+           wprintw(win_side,"Su tiempo es : %d",time);
+          wmove(win_side,3,1);
           wprintw(win_side,"Ingrese un nombre de ");
-          wmove(win_side,i+5,1);
+          wmove(win_side,4,1);
           wprintw(win_side,"hasta 10 caracteres:");
-          wmove(win_side,i+7,1);
+          wmove(win_side,6,1);
           wrefresh(win_side);
           while((d=toupper(getch())) != '\n' ){
             if(d == 127 && j>0){//backspace
-              wmove(win_side,i+7,j);
+              wmove(win_side,6,j);
               wprintw(win_side," ");
-              wmove(win_side,i+7,j--);
+              wmove(win_side,6,j--);
               wrefresh(win_side);
             }
             else if(j<10 && d != 127){
@@ -533,11 +533,11 @@ int main(int argc, char *argv[])
              wrefresh(win_side);
              }
            }
-            wmove(win_side,i+8,1);
+            wmove(win_side,10,1);
             wprintw(win_side,"Se ha agregado ",nombre);
-            wmove(win_side,i+9,1);
+            wmove(win_side,11,1);
             wprintw(win_side,"correctamente! ",nombre);
-            wmove(win_side, i+11, 1);
+            wmove(win_side, 12, 1);
             sprintf(a.name,nombre);
             a.score = time;
             send_highscore(con,&a);
