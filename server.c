@@ -107,7 +107,7 @@ void * attend(void * a)
      free(a);
      /* expects blocking read */
      while (!*killflag) {
-	  if ((len = receive(con, buf, buf_size, &timeout)) > 0) {
+	  if ((len = receive(con, buf, 25/*buf_size*/, &timeout)) > 0) {
 	       write(w_fd, buf, len);
 	  }
 	  else if (len == -1) {
@@ -163,7 +163,7 @@ void * inform(void * a)
 		    read(r_fd, &buf[1], sizeof(EndGameStruct));
 		    send_endgame(con, (EndGameStruct *) (buf + 1));
 	       }
-         else if (buf[0] == HIGHSCORE) {
+         else if (buf[0] == HIGHSCORES) {
            read(r_fd, &buf[1], sizeof(int));
           read(r_fd, &buf[1+sizeof(int)], (int)buf[1]*sizeof(Highscore));
           send_highscore(con, (Highscore *) (buf + 1+sizeof(int)));
@@ -233,7 +233,7 @@ int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set, 
 int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[8], int64_t players)
 {
      fd_set r_set;
-     int8_t q, uflag = false, msg_type, endflag = false,h_flag=false;
+     int8_t q, uflag = false, msg_type, endflag = false,h_flag=false,h_add_flag = false;
      int64_t nfds = 0, sflag, rlen, data_size;
      UpdateStruct * us;
      QueryStruct * qs;
@@ -266,6 +266,14 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 	  FD_SET(pths[i]->r_fd, &r_set);
      }
      nfds++;
+
+
+
+     open_database();
+     insert_highscore("hola",520);
+     insert_highscore("hoa",450);
+     insert_highscore("hla",400);
+
 
      while(!q) {
 	  /* select on pthreads read */
@@ -309,10 +317,13 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 					uflag = true;
 				   }
 			      }
-            else if (data_struct[0] == HIGHSCORE){
+            else if (data_struct[0] == HIGHSCORES){
               player= i;
               h_flag = true;
-            }
+            }  else if (data_struct[0] == HIGHSCORE_ADD){
+              read(pths[i]->r_fd, &data_struct[1], sizeof(Highscore));
+                h_add_flag = true;
+              }
 			 }
 			 else if (rlen == 0) {
 			      /* client disconnected */
@@ -349,20 +360,20 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
       }
          else if (h_flag){
         int count,size;
-        open_database();
-        insert_highscore("hola",520);
-        insert_highscore("hoa",450);
-        insert_highscore("hla",400);
-        insert_highscore("",52);
        h = get_highscores(&count);
-        msg_type = HIGHSCORE;
+        msg_type = HIGHSCORES;
         highscore_struct[0] = msg_type;
         highscore_struct[1] = count;
 		    size = sizeof(Highscore) *count;
 		    memcpy(&highscore_struct[1+sizeof(int)], h, size);
 	  write(pths[player]->w_fd, highscore_struct, size + 1);
         h_flag = false;
-      }
+      }else if (h_add_flag){
+     h = (Highscore *)&data_struct[1];
+     insert_highscore(h[0].name,h[0].score);
+     h_add_flag = false;
+       q = true;
+   }
 
 	       if (endflag) {
 		    /* end game conditions where met */
@@ -376,7 +387,6 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 			 }
 			 write(pths[i]->w_fd, data_struct, sizeof(EndGameStruct) + 1);
 		    }
-		    q = true;
 	       }
 	  }
      }

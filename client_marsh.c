@@ -17,6 +17,17 @@ static int64_t query_marsh(char buf[], const QueryStruct * qs)
      return sizeof(QueryStruct) + 1;
 }
 
+static int64_t highscore_marsh(char buf[], const Highscore * h)
+{
+     if (h == NULL) {
+	  return -1;
+     }
+     buf[0] = (char) HIGHSCORE_ADD;
+     memcpy(&buf[1], &(h->name), 20);
+     memcpy(&buf[1+20], &(h->score), sizeof(int));
+     return sizeof(Highscore) + 1;
+}
+
 
 static int64_t init_unmarsh(InitStruct ** is, char buf[])
 {
@@ -105,8 +116,13 @@ int64_t send_h_query(Connection * c)
   if (c == NULL) {
     return -1;
   }
-  buf[0]=(char)HIGHSCORE;
+  buf[0]=(char)HIGHSCORES;
   return mm_write(c, buf, len);
+}
+
+int64_t send_highscore(Connection * c,Highscore * h)
+{
+  return send(c, (void *) h, (int64_t (*) (void *, const void *))highscore_marsh);
 }
 
 int8_t receive_init(Connection * c,InitStruct ** data_struct, struct timeval * timeout, int64_t tries)
@@ -120,7 +136,7 @@ int8_t receive_init(Connection * c,InitStruct ** data_struct, struct timeval * t
      }
      while (i < tries && (read = mm_select(c,timeout) ) <= 0) {
 	  if (read == 0) {
-	       
+
 	       i++;
 	  }
 	  timeout->tv_sec = taux.tv_sec;
@@ -190,9 +206,9 @@ int8_t receive_update(Connection * c, char * data_struct, int64_t size, struct t
 	       ret = ERROR;
 	  }
      }
-     else if (buf[0] == HIGHSCORE) {
+     else if (buf[0] == HIGHSCORES) {
    if (highscore_unmarsh(data_struct, buf) > 0){
-        ret = HIGHSCORE;
+        ret = HIGHSCORES;
    }
    else {
         ret = ERROR;
@@ -201,6 +217,6 @@ int8_t receive_update(Connection * c, char * data_struct, int64_t size, struct t
      else {
 	  ret = ERROR;
      }
-     
+
      return ret;
 }

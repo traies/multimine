@@ -21,14 +21,22 @@ int open_database(){
   char * error;int i;
     if (sqlite3_open("example.db", &db) != SQLITE_OK)
         return -1;
-    sqlite3_exec(db, "drop TABLE HIGHSCORES", NULL, NULL, &error);
     sqlite3_exec(db, "CREATE TABLE HIGHSCORES(name text ,score int not null,primary key(name,score))", NULL, NULL, &error);
-    sqlite3_exec(db, "drop TABLE WIN_LOSE", NULL, NULL, &error);
-
     sqlite3_exec(db, "CREATE TABLE WIN_LOSE(name text ,wins int not null,loses int not null,primary key(name,wins,loses))", NULL, NULL, &error);
+    insert_highscore("",0);
     return 0;
 }
 
+int clear_stats(){
+  char * error;
+  sqlite3_exec(db, "drop TABLE WIN_LOSE", NULL, NULL, &error);
+  return 0;
+}
+
+int clear_highscores(){
+  char * error;
+  sqlite3_exec(db,"drop TABLE HIGHSCORES",NULL,NULL,&error);
+}
 void add_id(char * name){
   char * error;
 char * query = malloc(MAX_SIZE*sizeof(char));

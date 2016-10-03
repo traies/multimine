@@ -279,6 +279,7 @@ int main(int argc, char *argv[])
      int8_t msg_type, x, y;
      EndGameStruct * es;
      void * t_aux;
+       Highscore a;
 
      cols = is->cols;
      rows = is->rows;
@@ -523,7 +524,7 @@ int main(int argc, char *argv[])
 	  else if (msg_type == DISCONNECT) {
 	       cli_exit("desconectado\n");
 	  }
-    else if(msg_type == HIGHSCORE){
+    else if(msg_type == HIGHSCORES){
       Highscore * h = (Highscore*) &data_struct[1];
       int j = 0;
       wclear(win_side);
@@ -653,6 +654,9 @@ int main(int argc, char *argv[])
             wmove(win_side,i+9,1);
             wprintw(win_side,"correctamente! ",nombre);
             wmove(win_side, i+11, 1);
+            sprintf(a.name,nombre);
+            a.score = 1000;
+            send_highscore(con,&a);
          }else{
            wmove(win_side,i+1,1);
          }

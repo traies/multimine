@@ -9,3 +9,5 @@ Highscore * get_highscores(int * count);
 void add_id(char * name);
 void update_id(char * name,int type);
 Stat * get_stats(int * count);
+int clear_stats();
+int clear_highscores();
