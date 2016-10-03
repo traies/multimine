@@ -201,7 +201,7 @@ int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set, 
      return 0;
 }
 
-int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[8], int64_t players)
+int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[8], int64_t players,mqd_t mqd)
 {
      fd_set r_set;
      int8_t q, uflag = false, msg_type, endflag = false,h_flag=false,h_add_flag = false;
@@ -215,6 +215,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
      int player;
      Highscore * h;
      pleft = players;
+     char msg[100]=" ";
      /* init data buffer */
      data_size = sizeof(UpdateStruct) + msize * 4 + 1;
      data_struct = malloc(data_size);
@@ -280,7 +281,8 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 				   /* read remaining data */
 				   read(pths[i]->r_fd, &data_struct[1], sizeof(QueryStruct));
 				   qs = (QueryStruct *) &data_struct[1];
-				   printf("x: %d, y: %d \n", qs->x, qs->y);
+				   sprintf(msg,"PLAYER %d OPENED x: %d, y: %d ", i, qs->x, qs->y);
+                                    mq_send(mqd,msg,strlen(msg)+1,NORMAL_PR);
 				   if (update_minefield(minef, qs->x, qs->y, i, us)) {
 					uflag = true;
 				   }
@@ -295,6 +297,8 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 			 }
 			 else if (rlen == 0) {
 			      /* client disconnected */
+                              sprintf(msg,"PLAYER %d DISCONECTED", i);
+                               mq_send(mqd,msg,strlen(msg)+1,WARNING_PR);
 			      reset_score(minef, i);
 			      close(pths[i]->w_fd);
 			      FD_CLR(pths[i]->r_fd, &r_set);
@@ -367,7 +371,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize, ClientPthreads * pths[
 
 }
 
-int64_t host_game(ClientPthreads * pths[8], int64_t players, int64_t rows, int64_t cols, int64_t mines)
+int64_t host_game(ClientPthreads * pths[8], int64_t players, int64_t rows, int64_t cols, int64_t mines,mqd_t mqd)
 {
      Minefield * minef;
      char * data_struct;
@@ -405,7 +409,7 @@ int64_t host_game(ClientPthreads * pths[8], int64_t players, int64_t rows, int64
 
      /* attend requests */
      printf("c\n");
-     ret = attend_requests(minef, rows * cols, pths , players);
+     ret = attend_requests(minef, rows * cols, pths , players,mqd);
      for (int i = 0; i < players; i++) {
 	  if (pths[i] == NULL) {
 	       continue;
@@ -521,7 +525,7 @@ int main(int argc, char * argv[])
   	   return -1;
 	   }
 
-	   host_game(pths, players, rows, cols, mines);
+	   host_game(pths, players, rows, cols, mines,mqd);
 
      return 0;
 }
