@@ -111,7 +111,7 @@ Connection * mm_connect(char * addr){
 	   read(r,(char *)buf,sizeof(Message));
 	   Message * msg = (Message *) buf;
        if(msg->type==ACK_CONN_PCK){
-		       puts("hola");
+		       puts("fifo");
         c = newConnection(w,r);
         free(buf);
         return c;
