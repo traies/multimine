@@ -382,7 +382,7 @@ int main(int argc, char *argv[])
      timeout(5);
 
      //wattrset(win, COLOR_PAIR(2));
-     while(!win_flag && !quit_flag) {
+     while(!win_flag && !quit_flag &&!loose_flag) {
     current_utc_time(&init_frame_time);
 	  //clock_gettime(CLOCK_REALTIME,&init_frame_time);
 	  select_timeout.tv_sec = 0;

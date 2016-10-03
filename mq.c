@@ -13,8 +13,7 @@
 
 int main(int argc,char * argv[]){
   char * addr = configuration("config",mm_commtype(),2);
-
-  printf("%s\n", addr);
+  sleep(1);
   Connection * c = mm_connect(addr);
 if(!c){
   printf("failed\n" );
