@@ -14,7 +14,7 @@ static int64_t query_marsh(char buf[], const QueryStruct * qs)
      buf[0] = (char) QUERYMINE;
      memcpy(&buf[1], &(qs->x), 1);
      memcpy(&buf[2], &(qs->y), 1);
-     return sizeof(QueryStruct) + 1;
+     return 3;
 }
 
 static int64_t highscore_marsh(char buf[], const Highscore * h)
@@ -24,11 +24,11 @@ static int64_t highscore_marsh(char buf[], const Highscore * h)
      }
      buf[0] = (char) HIGHSCORE_ADD;
      memcpy(&buf[1], &(h->name), 20);
-     memcpy(&buf[1+20], &(h->score), sizeof(int));
-     return sizeof(Highscore) + 1;
+     memcpy(&buf[1+20], &(h->score), sizeof(int64_t));
+     return 20 + sizeof(int64_t) + 1;
 }
 
-
+//TODO
 static int64_t init_unmarsh(InitStruct ** is, char buf[])
 {
      *is = calloc(1, sizeof(InitStruct));
@@ -191,7 +191,7 @@ int8_t receive_update(Connection * c, char * data_struct, int64_t size, struct t
      if (buf[0] == UPDATEGAME) {
 
 	  if (update_unmarsh(data_struct, buf) > 0){
-	       
+
 	       ret = UPDATEGAME;
 	  }
 	  else {

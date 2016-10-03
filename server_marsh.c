@@ -22,12 +22,12 @@ static int64_t init_marsh(char buf[], const InitStruct * is)
      buf += sizeof(int64_t);
      *buf++ = is->player_id;
      *buf++ = is->players;
-     return sizeof(InitStruct) + 1;
+     return sizeof(int64_t) * 3 + 2 + 1;
 }
 
 static int64_t update_marsh(char buf[], const UpdateStruct * us)
 {
-     int64_t size = 1 + us->len * 4 + sizeof(UpdateStruct);
+     int64_t size = 1 + us->len * 4 + sizeof(int64_t) * 2 + sizeof(int8_t) + sizeof(int64_t[8]);
      char * base = buf;
      if (MAX_BUF_SIZE < size) {
 	  return -1;
@@ -53,7 +53,7 @@ static int64_t endgame_marsh(char buf[], const EndGameStruct * es)
      *buf++ = es->players;
      *buf++ = es->winner_id;
      memcpy(buf, es->player_scores, sizeof(int64_t[8]));
-     return 1 + sizeof(EndGameStruct);
+     return 3 + sizeof(int64_t[8]);
 }
 
 static int64_t highscore_marsh(char buf[], const Highscore * h)
