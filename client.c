@@ -536,7 +536,7 @@ int main(int argc, char *argv[])
             wmove(win_side, 12, 1);
             sprintf(a.name,"%s", nombre);
             a.score = time;
-            send_highscore(con,&a);
+            //send_highscore(con,&a);
 
         wprintw(win_side, "PRESS ENTER TO EXIT");
         wrefresh(win_side);
@@ -548,7 +548,7 @@ int main(int argc, char *argv[])
        if(players == 1){
                sprintf(a.name," ");
                a.score = -1;
-               send_highscore(con,&a);
+               //send_highscore(con,&a);
        }
      }
 

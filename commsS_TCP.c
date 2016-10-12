@@ -93,6 +93,7 @@ int mm_select(Connection * c, struct timeval * timeout){
   if (c == NULL){
     return -1;
   }
+  FD_ZERO(&r_set);
   FD_SET(c->fd, &r_set);
   ret = select(c->fd + 1, &r_set, NULL, NULL, timeout);
   if (ret == 0) {
@@ -165,11 +166,9 @@ static Listener_p newListener(int fd){
 
 static int64_t write_msg(int w_fd,const int8_t * m,int64_t size){
      int64_t ret;
-     char * buf = calloc(1,sizeof(int64_t) + size), * b;
-     b = buf;
-     memcpy(b, &size, sizeof(int64_t));
-     b+=sizeof(int64_t);
-     memcpy(b, m, size);
+     char * buf = calloc(1,sizeof(int64_t) + size);
+     memcpy(&buf[0], &size, sizeof(int64_t));
+     memcpy(&buf[sizeof(int64_t)], m, size);
      ret = write(w_fd,buf,sizeof(int64_t)+size);
      free(buf);
      return ret;

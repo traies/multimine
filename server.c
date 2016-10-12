@@ -119,7 +119,8 @@ void * inform(void * a)
 	struct timeval timeout;
 	timeout.tv_sec = 1;
 	timeout.tv_usec = 0;
-
+	FD_ZERO(&fds);
+	FD_SET(r_fd, &fds);
 	/* expects blocking read */
 	while(true) {
 		select(r_fd + 1, &fds, NULL, NULL, &timeout);
@@ -204,26 +205,57 @@ int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set,
 	return 0;
 }
 
+static void copy_endgame_struct(int8_t * data_struct, EndGameStruct * endgame_struct, int size)
+{
+	EndGameStruct * aux =  (EndGameStruct *) &data_struct[1];
+	memset(data_struct, 0, size);
+	data_struct[0] = ENDGAME;
+	aux->players = endgame_struct->players;
+	aux->winner_id = endgame_struct->winner_id;
+	for (int i = 0; i < aux->players; i++) {
+		aux->player_scores[i] = endgame_struct->player_scores[i];
+	}
+	return;
+}
+
+static void copy_update_struct(int8_t * data_struct, UpdateStruct * update_struct, int data_max_size, int data_size)
+{
+	UpdateStruct * aux = (UpdateStruct *)&data_struct[1];
+	memset(data_struct, 0, data_max_size);
+	data_struct[0] = UPDATEGAME;
+	aux->len = update_struct->len;
+	aux->players = update_struct->players;
+	for (int i=0; i < aux->players; i++) {
+		aux->player_scores[i] = update_struct->player_scores[i];
+	}
+	for (int i=0; i < aux->len; i++) {
+		aux->tiles[i].x = update_struct->tiles[i].x;
+		aux->tiles[i].y = update_struct->tiles[i].y;
+		aux->tiles[i].nearby = update_struct->tiles[i].nearby;
+		aux->tiles[i].player = update_struct->tiles[i].player;
+	}
+	return;
+}
 int64_t attend_requests(Minefield * minef, int64_t msize,
 	ClientPthreads * pths[8], int64_t players,mqd_t mqd)
 {
 	fd_set r_set;
 	int8_t q = false, uflag = false, msg_type, endflag = false,h_flag=false,h_add_flag = false;
-	int64_t nfds = 0, sflag, rlen, data_size, pleft ;
+	int64_t nfds = 0, sflag, rlen, data_size, data_max_size, pleft ;
 	UpdateStruct * us;
 	QueryStruct * qs;
 	EndGameStruct es;
 	struct timeval timeout;
-	char * data_struct;
+	int8_t * data_struct;
 	char * highscore_struct;
 	int player;
 	Highscore * h;
 	pleft = players;
 	char msg[100]=" ";
 	/* init data buffer */
-	data_size = sizeof(UpdateStruct) + msize * 4 + 1;
-	data_struct = malloc(data_size);
-	us = malloc(data_size);
+	data_max_size = sizeof(UpdateStruct) + msize * 4 + 1;
+	data_struct = calloc(1, data_max_size);
+	us = calloc(1, data_max_size);
 	highscore_struct = malloc(sizeof(Highscore)*10 + 1 +sizeof(int));
 	if (!data_struct || !us || !highscore_struct) {
 		free_minefield(minef);
@@ -235,6 +267,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize,
 	timeout.tv_sec = 5;
 	timeout.tv_usec = 0;
 	/* fill in read file descriptor set */
+	FD_ZERO(&r_set);
 	for (int i = 0; i < players; i++) {
 		if (nfds < pths[i]->r_fd) {
 			nfds = pths[i]->r_fd;
@@ -320,9 +353,8 @@ int64_t attend_requests(Minefield * minef, int64_t msize,
 				uflag = false;
 				update_scores(minef, us);
 				msg_type = UPDATEGAME;
-				data_struct[0] = msg_type;
-				data_size = sizeof(UpdateStruct) + 4 * us->len;
-				memcpy(&data_struct[1], us, data_size);
+				copy_update_struct(data_struct, us, data_max_size, data_size);
+				data_size = sizeof(UpdateStruct) + us->len * 4;
 				for (int i = 0; i < players; i++) {
 					if (pths[i] == NULL) {
 						continue;
@@ -351,20 +383,18 @@ int64_t attend_requests(Minefield * minef, int64_t msize,
 			}
 			if (endflag && !h_add_flag) {
 				/* end game conditions where met */
-				msg_type = ENDGAME;
-				data_struct[0] = msg_type;
-				memcpy(&data_struct[1], &es, sizeof(EndGameStruct));
+				copy_endgame_struct(data_struct, &es, data_max_size);
 				for (int i = 0; i < players; i++) {
 					if (pths[i] == NULL) {
 						continue;
 					}
 					write(pths[i]->w_fd, data_struct, sizeof(EndGameStruct) + 1);
 				}
+				q = true;
 			}
 		}
 	}
 	free_minefield(minef);
-	printf("hola\n");
 	return 0;
 }
 
@@ -382,7 +412,7 @@ int64_t host_game(ClientPthreads * pths[8], int64_t players, int64_t rows,
 		return MEMORY_ERROR;
 	}
 	/* init data buffer with max size */
-	data_struct = malloc(sizeof(InitStruct) + 1);
+	data_struct = calloc(1, sizeof(InitStruct) + 1);
 	if (!data_struct) {
 		free_minefield(minef);
 		return MEMORY_ERROR;

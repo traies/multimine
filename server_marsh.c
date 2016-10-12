@@ -27,10 +27,7 @@ static int64_t init_marsh(char buf[], const InitStruct * is)
 
 static int64_t update_marsh(char buf[], const UpdateStruct * us)
 {
-	int64_t size = 1 + us->len * 4 + sizeof(int64_t) * 2 + sizeof(int8_t) + sizeof(int64_t[8]);
-	if (MAX_BUF_SIZE < size) {
-		return -1;
-	}
+	int64_t size = 1 + us->len * 4 + sizeof(UpdateStruct);
 	*buf++ = UPDATEGAME;
 	memcpy(buf, (char *) &us->len, sizeof(int64_t));
 	buf += sizeof(int64_t);
@@ -70,6 +67,7 @@ static int64_t send(Connection * c, void * data, int64_t (*marsh)(void*, const v
 {
 	int len;
 	int8_t buf[MAX_BUF_SIZE];
+	memset(buf, 0, MAX_BUF_SIZE);
 	if (data == NULL || c == NULL) {
 		return -1;
 	}
