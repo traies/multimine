@@ -11,42 +11,62 @@
 static int save_highscores(void *unused, int count, char **data, char **columns);
 static int get_number_from(char * str);
 
-static sqlite3 * db;
+static sqlite3 * db = NULL;
 static Highscore h[max_highscores];
 static int idx = 0;
 
 int open_database(){
-  char * error;
-    if (sqlite3_open("example.db", &db) != SQLITE_OK)
-        return -1;
+  char * error = NULL;
+    if (sqlite3_open("example.db", &db) != SQLITE_OK) {
+		sqlite3_close(db);
+		return -1;
+	}
     sqlite3_exec(db, "CREATE TABLE HIGHSCORES(name text,score int not null,primary key(name,score))", NULL, NULL, &error);
-    insert_highscore("ALEJO",100);
+	if (error != NULL) {
+		sqlite3_free(error);
+	}
+	insert_highscore("ALEJO",100);
     insert_highscore("TOMAS",100);
     insert_highscore("NICOLAS",100);
     insert_highscore("",10000);
     return 0;
 }
 
+void close_database() {
+	if (db != NULL) {
+		sqlite3_close(db);
+	}
+}
 
 int clear_highscores(){
   char * error;
   sqlite3_exec(db,"drop TABLE HIGHSCORES",NULL,NULL,&error);
+  if (error != NULL) {
+	  sqlite3_free(error);
+  }
   return 0;
 }
 
 
 void insert_highscore(char * name,int score){
-    char * error;
-  char * query = malloc(MAX_SIZE*sizeof(char));
-  sprintf(query,"INSERT INTO HIGHSCORES values ('%s',%d)",name,score);
-  sqlite3_exec(db,query , NULL, NULL, &error);
+	char * error = NULL;
+	char * query = malloc(MAX_SIZE*sizeof(char));
+	sprintf(query,"INSERT INTO HIGHSCORES values ('%s',%d)",name,score);
+	sqlite3_exec(db,query , NULL, NULL, &error);
+	free(query);
+	if (error != NULL) {
+		sqlite3_free(error);
+	}
 }
 
 Highscore * get_highscores(int * count){
-  char * error;
+  char * error = NULL;
   sqlite3_exec(db, "SELECT * FROM HIGHSCORES ORDER BY score ASC", save_highscores, NULL, &error);
   *count = idx;
   idx = 0;
+  if (error != NULL) {
+	  sqlite3_free(error);
+  }
   return h;
 }
 

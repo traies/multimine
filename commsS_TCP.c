@@ -47,6 +47,7 @@ Listener_p mm_listen(char * addr){
   if(bind(sfd, res->ai_addr, res->ai_addrlen)==-1){
     return NULL;
   }
+  freeaddrinfo(res);
   return newListener(sfd);
 }
 
@@ -83,8 +84,8 @@ void mm_disconnect(Connection * c){
 }
 
 void mm_disconnect_listener(Listener * l) {
-     shutdown(l->l_fd, SHUT_RDWR);
-     free(l);
+	shutdown(l->l_fd, SHUT_RDWR);
+	free(l);
 }
 
 int mm_select(Connection * c, struct timeval * timeout){

@@ -63,6 +63,7 @@ void free_minefield(Minefield * m);
 static void free_tile(Tile * t);
 static void free_sector(Sector * s);
 
+static int8_t (*buf)[4] = NULL;
 
 Minefield * create_minefield(int64_t cols, int64_t rows, int64_t mines, int64_t players)
 {
@@ -311,6 +312,10 @@ void free_minefield(Minefield * m)
      }
      free(m->tiles);
      free(m);
+	 if (buf != NULL) {
+		 free(buf);
+		 buf = NULL;
+	 }
      return;
 }
 
@@ -377,11 +382,11 @@ static int64_t uncover_sector(Minefield * m, int64_t x, int64_t y, int64_t playe
      return c;
 }
 
+
 /* update minefield state */
 int64_t update_minefield(Minefield * m, int64_t x, int64_t y, int64_t player, UpdateStruct * us)
 {
      int64_t count = 0, base_index;
-     static int8_t (*buf)[4];
      if (m == NULL || us == NULL || m->player_scores[player] < 0 || x < 0 || y < 0 || x >= m->cols || y >= m->rows) {
 	  return -1;
      }

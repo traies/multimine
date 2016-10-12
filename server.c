@@ -38,6 +38,8 @@ typedef struct ClientPthreads
 	pthread_t p_info;
 	int r_fd;
 	int w_fd;
+	int8_t * attr_killflag;
+	int8_t * info_killflag;
 } ClientPthreads;
 
 int64_t update_scores(Minefield * m, UpdateStruct * us )
@@ -62,6 +64,7 @@ typedef struct attender
 {
 	Connection * con;
 	int w_fd, buf_size;
+	int8_t * killflag;
 } Attender;
 
 /* attendants threads run here */
@@ -72,7 +75,8 @@ void * attend(void * a)
 	int buf_size = attr->buf_size, w_fd = attr->w_fd, len;
 	int8_t * buf, * recv_buf;
 	struct timeval timeout;
-
+	int8_t * killflag = attr->killflag;
+	free(attr);
 	buf = malloc (buf_size);
 	recv_buf = malloc(buf_size);
 	if (!buf || !recv_buf) {
@@ -80,8 +84,6 @@ void * attend(void * a)
 	}
 	timeout.tv_sec = 1;
 	timeout.tv_usec = 0;
-
-	free(a);
 	/* expects blocking read */
 	while (true) {
 		if ((len = receive(con, buf, recv_buf, buf_size, &timeout)) > 0) {
@@ -96,6 +98,7 @@ void * attend(void * a)
 	close(w_fd);
 	free(buf);
 	free(recv_buf);
+	free(killflag);
 	pthread_exit(0);
 }
 
@@ -103,6 +106,7 @@ typedef struct Informer
 {
 	Connection * con;
 	int r_fd, buf_size;
+	int8_t * killflag;
 } Informer;
 
 /* informer threads run here */
@@ -114,15 +118,17 @@ void * inform(void * a)
 	// TODO cambiar a malloc()
 	int8_t buf[BUF_SIZE];
 	int64_t len;
+	int8_t * killflag = info->killflag;
 	fd_set fds;
 	UpdateStruct * us;
 	struct timeval timeout;
+	free(info);
 	timeout.tv_sec = 1;
 	timeout.tv_usec = 0;
 	FD_ZERO(&fds);
 	FD_SET(r_fd, &fds);
 	/* expects blocking read */
-	while(true) {
+	while(!*killflag) {
 		select(r_fd + 1, &fds, NULL, NULL, &timeout);
 		timeout.tv_sec = 1;
 		timeout.tv_usec = 0;
@@ -155,13 +161,14 @@ void * inform(void * a)
 		}
 	}
 	mm_disconnect(con);
+	free(killflag);
 	pthread_exit(0);
 }
 
 
 
 int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set,
-	int64_t * cli_i, int * attr_nfds, int * info_nfds, Connection * con,
+	int64_t count, int * attr_nfds, int * info_nfds, Connection * con,
 	int attr_buf_size, int info_buf_size)
 {
 	ClientPthreads * cli_p;
@@ -169,15 +176,20 @@ int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set,
 	Informer * informer;
 	int attr_fd[2], info_fd[2];
 	pthread_t pt_attr, pt_info;
-
+	int8_t * attr_killflag = malloc(sizeof(int8_t));
+	int8_t * info_killflag = malloc(sizeof(int8_t));
 	cli_p = malloc(sizeof(ClientPthreads));
 	attender = malloc(sizeof(Attender));
 	informer = malloc(sizeof(Informer));
-	if (!informer || !attender || !cli_p) {
+	if (!informer || !attender || !cli_p || !attr_killflag || !info_killflag) {
 		free(attender);
 		free(cli_p);
+		free(attr_killflag);
+		free(info_killflag);
 		return -1;
 	}
+	*attr_killflag = false;
+	*info_killflag = false;
 	attender->con = con;
 	informer->con = con;
 	pipe(attr_fd);
@@ -186,16 +198,19 @@ int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set,
 	informer->r_fd = info_fd[0];
 	attender->buf_size = attr_buf_size;
 	informer->buf_size = info_buf_size;
+	attender->killflag = attr_killflag;
+	informer->killflag = info_killflag;
 	pthread_create(&pt_attr, NULL, attend, attender);
 	pthread_create(&pt_info, NULL, inform, informer);
+	cli_p->attr_killflag = attr_killflag;
+	cli_p->info_killflag = info_killflag;
 	cli_p->p_attr = pt_attr;
 	cli_p->p_info = pt_info;
 	cli_p->r_fd = attr_fd[0];
 	cli_p->w_fd = info_fd[1];
 	FD_SET(attr_fd[0], r_set);
 	FD_SET(info_fd[1], w_set);
-	cli_arr[*cli_i] = cli_p;
-	*cli_i = *cli_i + 1;
+	cli_arr[count] = cli_p;
 	if (*attr_nfds < attr_fd[0] + 1) {
 		*attr_nfds = attr_fd[0] + 1;
 	}
@@ -394,7 +409,19 @@ int64_t attend_requests(Minefield * minef, int64_t msize,
 			}
 		}
 	}
+	free(us);
+	free(data_struct);
+	free(highscore_struct);
+	close_database();
 	free_minefield(minef);
+	for (int i = 0; i < players; i++) {
+		if (pths[i] != NULL) {
+			*pths[i]->attr_killflag = true;
+			pthread_join(pths[i]->p_attr, NULL);
+			*pths[i]->info_killflag = true;
+			pthread_join(pths[i]->p_info, NULL);
+		}
+	}
 	return 0;
 }
 
@@ -448,6 +475,14 @@ int64_t host_game(ClientPthreads * pths[8], int64_t players, int64_t rows,
 	return ret;
 }
 
+void srv_exit()
+{
+	printf("exit \n");
+	return;
+}
+
+static ClientPthreads * pths[8];
+static int cli_i = 0;
 
 int main(int argc, char * argv[])
 {
@@ -455,11 +490,10 @@ int main(int argc, char * argv[])
 	int64_t rows = ROWS, cols = COLS, mines = MINES;
 	int attr_nfds = 0, info_nfds = 0;
 	fd_set r_set, w_set;
-	int count = 0;
-	ClientPthreads * pths[8];
-	int64_t cli_i = 0;
+	int count, players;
+
+	signal(SIGINT, srv_exit);
 	Listener * lp = NULL;
-	int players;
 
 	if (argc > 1) {
 
@@ -485,7 +519,6 @@ int main(int argc, char * argv[])
 		return 0;
 	}
 	system("gnome-terminal -e ./bin/mq.out");
-
 	c = mm_accept(lp);
 	char msg[100]="";
 
@@ -493,37 +526,40 @@ int main(int argc, char * argv[])
 		mm_read(c,(int8_t *) msg,strlen("got_connected")+1);
 	}
 	mm_disconnect(c);
+	free(addr);
 	mqd_t mqd = mq_open("/mq",O_WRONLY);
 	mm_disconnect_listener(lp);
 
-	/* open connection */
-	addr = configuration("config",mm_commtype(),1);
-	count=0;
-	lp=mm_listen(addr);
-	if(lp==NULL){
-		printf("fracaso\n");
-		return 0;
+	while (true) {
+		/* open connection */
+		addr = configuration("config",mm_commtype(),1);
+		count=0;
+		lp=mm_listen(addr);
+		if(lp==NULL){
+			printf("fracaso\n");
+			return 0;
+		}
+		free(addr);
+		/* wait for connections */
+		while ( count < players && (c = mm_accept(lp)) != NULL) {
+			/* established conection on c, needs to create thread */
+			printf("conexion establecida. Creando thread.\n");
+			add_client(pths, &r_set, &w_set, count, &attr_nfds, &info_nfds, c, sizeof(Highscore) + 1, us_size);
+			printf("thread creado..\n");
+			mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
+			count++;
+			cli_i++;
+		}
+
+		mm_disconnect_listener(lp);
+
+		if (count < players) {
+			/* connections failed */
+			return -1;
+		}
+
+		host_game(pths, players, rows, cols, mines,mqd);
+		cli_i = 0;
 	}
-
-	/* wait for connections */
-	while ( count < players && (c = mm_accept(lp)) != NULL) {
-		/* established conection on c, needs to create thread */
-		printf("conexion establecida. Creando thread.\n");
-		add_client(pths, &r_set, &w_set, &cli_i, &attr_nfds, &info_nfds, c, sizeof(Highscore) + 1, us_size);
-		printf("thread creado..\n");
-		mq_send(mqd,"GOT A CONNECTION",strlen("GOT A CONNECTION")+1,NORMAL_PR);
-		count++;
-	}
-
-	mm_disconnect_listener(lp);
-
-	lp = NULL;
-
-	if (count < players) {
-		/* connections failed */
-		return -1;
-	}
-
-	host_game(pths, players, rows, cols, mines,mqd);
 	return 0;
 }
