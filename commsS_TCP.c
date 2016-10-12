@@ -25,7 +25,7 @@ struct listener {
 
 static Listener_p newListener(int fd);
 static Connection * newConnection(int fd);
-static int64_t write_msg(int w_fd,const char * m,int64_t size);
+static int64_t write_msg(int w_fd,const int8_t * m,int64_t size);
 
 Listener_p mm_listen(char * addr){
   struct addrinfo hints, *res;
@@ -54,11 +54,10 @@ Listener_p mm_listen(char * addr){
 
 Connection * mm_connect(char * addr){
   struct sockaddr_in sa;
-  int val,sfd;
+  int sfd;
 
   sfd=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
   if(sfd==-1){
-
     return NULL;
   }
   char tmp[64];
@@ -68,7 +67,7 @@ Connection * mm_connect(char * addr){
   memset(&sa,0,sizeof(sa));
   sa.sin_family=AF_INET;
   sa.sin_port=htons(atoi(port));
-  val = inet_pton(AF_INET,dir,&sa.sin_addr);
+  inet_pton(AF_INET,dir,&sa.sin_addr);
   if(connect(sfd,(struct sockaddr *)&sa,sizeof(sa))==-1){
     close(sfd);
     return NULL;
@@ -118,7 +117,7 @@ Connection * mm_accept(Listener_p l){
   return newConnection(n_fd);
 }
 
-int64_t mm_read(Connection * c, char buf[], int64_t size){
+int64_t mm_read(Connection * c, int8_t buf[], int64_t size){
 
      int64_t len, r_len, total_len = 0;
      int64_t s = 0;
@@ -148,7 +147,7 @@ int64_t mm_read(Connection * c, char buf[], int64_t size){
      return s;
 }
 
-int64_t mm_write(Connection * c, const char * m,int64_t size){
+int64_t mm_write(Connection * c, const int8_t * m,int64_t size){
   return write_msg(c->fd,m,size);
 }
 
@@ -164,7 +163,7 @@ static Listener_p newListener(int fd){
   return l;
 }
 
-static int64_t write_msg(int w_fd,const char * m,int64_t size){
+static int64_t write_msg(int w_fd,const int8_t * m,int64_t size){
      int64_t ret;
      char * buf = calloc(1,sizeof(int64_t) + size), * b;
      b = buf;

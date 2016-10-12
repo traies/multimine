@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <mqueue.h>
 #include <string.h>
-
+#include <configurator.h>
 
 int main(int argc,char * argv[]){
   char * addr = configuration("config",mm_commtype(),2);
@@ -36,12 +36,11 @@ mq_unlink("/mq");
        return 1;
      }
 
- mm_write( c, "got_connected",strlen("got_connected")+1);
-int j = 0;
+ mm_write( c, (int8_t *)"got_connected",strlen("got_connected")+1);
 
 
 while(1){
-        mq_receive(mqd,m,100,&pr);
+        mq_receive(mqd,m,100,(unsigned int*)&pr);
         switch(pr){
           case NORMAL_PR : type = "NORMAL";
                           break;

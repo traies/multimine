@@ -16,7 +16,7 @@ static Highscore h[max_highscores];
 static int idx = 0;
 
 int open_database(){
-  char * error;int i;
+  char * error;
     if (sqlite3_open("example.db", &db) != SQLITE_OK)
         return -1;
     sqlite3_exec(db, "CREATE TABLE HIGHSCORES(name text,score int not null,primary key(name,score))", NULL, NULL, &error);
@@ -31,6 +31,7 @@ int open_database(){
 int clear_highscores(){
   char * error;
   sqlite3_exec(db,"drop TABLE HIGHSCORES",NULL,NULL,&error);
+  return 0;
 }
 
 
@@ -62,7 +63,7 @@ Highscore * get_highscores(int * count){
  static int save_highscores(void *unused, int count, char **data, char **columns)
  {
    if(idx < 10){
-      sprintf(h[idx].name,data[0]);
+      sprintf(h[idx].name, "%s", data[0]);
       h[idx].score = get_number_from(data[1]);
    }
    idx++;

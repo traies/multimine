@@ -12,7 +12,6 @@ static char * getField(char * line,int n);
 
 char * configuration(char * config_file,int comm_mode,int mode){
   FILE * f = fopen(config_file,"r");
-  int len=0;
   char  s_line[SIZE];
   fgets(s_line,SIZE,f);
   char  c_line[SIZE];

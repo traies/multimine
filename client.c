@@ -24,10 +24,7 @@
 #include <configurator.h>
 #include <msg_structs.h>
 #include <client_marsh.h>
-
-#define min(a,b)    ((a < b)? a:b)
-#define max(a,b)    ((a < b)? b:a)
-#define clamp(a, b, c) max(min(a,c),b)
+#include <common.h>
 
 static void current_utc_time(struct timespec *ts);
 void draw_tile(WINDOW * win, int64_t y, int64_t x, int64_t nearby, int64_t player);
@@ -185,12 +182,11 @@ int main(int argc, char *argv[])
      int data_size;
      timeout.tv_sec = 20;
      timeout.tv_usec = 0;
-     int len, max_size = 100;
-     int64_t c, win_h, win_w,  mb_size_1 = 0, mb_size_2 = 0, count = 0, auxi = 0, auxj = 0, marks = 0;
+     int64_t c, win_h, win_w, count = 0, auxi = 0, marks = 0;
      int8_t auxx, auxy, auxn, auxp;
      int64_t utiles = 0, total_tiles;
      int8_t win_flag = FALSE, loose_flag = FALSE, quit_flag = FALSE;
-     struct timespec init_frame_time, end_frame_time, diff_frame_time,init,end,diff;
+     struct timespec init_frame_time, end_frame_time, diff_frame_time,init,end;
      struct timeval select_timeout;
      int64_t (** mine_buffer)[2] = NULL, (*mine_buffer_aux)[3][2] = NULL;
      WINDOW * win, * win_side;
@@ -252,7 +248,7 @@ int main(int argc, char *argv[])
 	  t_aux = mine_buffer[auxi] = malloc(sizeof(int64_t[2]) * (rows));
      } while (t_aux && mine_buffer[auxi] && auxi++ < (cols));
      if (!t_aux) {
-	  printf("fracaso en %d \n", auxi);
+	  printf("fracaso en %d \n", (int)auxi);
 	  return -1;
      }
      for (int i = 0; i < (cols); i++) {
@@ -534,11 +530,11 @@ int main(int argc, char *argv[])
              }
            }
             wmove(win_side,10,1);
-            wprintw(win_side,"Se ha agregado ",nombre);
+            wprintw(win_side,"Se ha agregado %s",nombre);
             wmove(win_side,11,1);
-            wprintw(win_side,"correctamente! ",nombre);
+            wprintw(win_side,"correctamente! %s",nombre);
             wmove(win_side, 12, 1);
-            sprintf(a.name,nombre);
+            sprintf(a.name,"%s", nombre);
             a.score = time;
             send_highscore(con,&a);
 
@@ -550,7 +546,7 @@ int main(int argc, char *argv[])
        wmove(win_side,i+3,1);
          wprintw(win_side, "PRESS ENTER TO EXIT!");
        if(players == 1){
-               sprintf(a.name,"");
+               sprintf(a.name," ");
                a.score = -1;
                send_highscore(con,&a);
        }

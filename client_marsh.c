@@ -29,7 +29,7 @@ static int64_t highscore_marsh(char buf[], const Highscore * h)
 }
 
 //TODO
-static int64_t init_unmarsh(InitStruct ** is, char buf[])
+static int64_t init_unmarsh(InitStruct ** is, int8_t buf[])
 {
      *is = calloc(1, sizeof(InitStruct));
      if(!*is) {
@@ -46,7 +46,7 @@ static int64_t init_unmarsh(InitStruct ** is, char buf[])
      (*is)->players = *buf++;
      return sizeof(InitStruct);
 }
-static int64_t update_unmarsh(char data_struct[], char buf[])
+static int64_t update_unmarsh(char data_struct[], int8_t buf[])
 {
      UpdateStruct * us;
      int64_t len;
@@ -67,7 +67,7 @@ static int64_t update_unmarsh(char data_struct[], char buf[])
      return sizeof(UpdateStruct) + len * 4;
 }
 
-static int64_t highscore_unmarsh(char data_struct[], char buf[])
+static int64_t highscore_unmarsh(char data_struct[], int8_t buf[])
 {
   Highscore * h;
   data_struct[0] = buf[0];
@@ -81,7 +81,7 @@ static int64_t highscore_unmarsh(char data_struct[], char buf[])
   return 1+sizeof(Highscore)*(i-1);
 }
 
-static int64_t endgame_unmarsh(char data_struct[], char buf[])
+static int64_t endgame_unmarsh(char data_struct[], int8_t buf[])
 {
      EndGameStruct * es;
      data_struct[0] = buf[0];
@@ -95,7 +95,7 @@ static int64_t endgame_unmarsh(char data_struct[], char buf[])
 static int64_t send(Connection * c,  void * data, int64_t (*marsh)(void*, const void*))
 {
      int len;
-     static char buf[MAX_BUF_SIZE];
+     static int8_t buf[MAX_BUF_SIZE];
      if (data == NULL || c == NULL) {
 	  return -1;
      }
@@ -112,7 +112,7 @@ int64_t send_query(Connection * c, QueryStruct * qs)
 int64_t send_h_query(Connection * c)
 {
   int len = 1;
-  static char buf[2];
+  static int8_t buf[2];
   if (c == NULL) {
     return -1;
   }
@@ -127,7 +127,7 @@ int64_t send_highscore(Connection * c,Highscore * h)
 
 int8_t receive_init(Connection * c,InitStruct ** data_struct, struct timeval * timeout, int64_t tries)
 {
-     static char buf[MAX_BUF_SIZE];
+     static int8_t buf[MAX_BUF_SIZE];
      struct timeval taux;
      int64_t read, ret, i = 0;
      if (timeout != NULL) {
@@ -167,7 +167,7 @@ int8_t receive_init(Connection * c,InitStruct ** data_struct, struct timeval * t
 
 int8_t receive_update(Connection * c, char * data_struct, int64_t size, struct timeval * timeout)
 {
-     static char * buf = NULL;
+     static int8_t * buf = NULL;
      static int buf_size = 0;
      int64_t read, ret;
 

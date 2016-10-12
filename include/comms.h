@@ -1,6 +1,5 @@
 #ifndef COMMS_H
 #define COMMS_H
-#define min(a,b)  ((a) < (b))?(a):(b)
 #define COMM_FIFO 6
 #define COMM_SOCK_UNIX 66
 #define COMM_SOCK_INET 666
@@ -52,12 +51,12 @@ Connection * mm_accept(Listener_p l);
 ** Reads bytes from a connection. An int, where the
 ** amount of bites read will be completed, must be passed.
 */
-int64_t mm_read(Connection * c, char buf[], int64_t size);
+int64_t mm_read(Connection * c, int8_t buf[], int64_t size);
 
 /*
 ** Writes size bytes of m to the given connection.
 */
-int64_t mm_write(Connection * c, const char * m,int64_t size);
+int64_t mm_write(Connection * c, const int8_t * m,int64_t size);
 
 /*
 ** Returns the version of this header's implementation

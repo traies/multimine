@@ -56,14 +56,12 @@ typedef struct Minefield
 } Minefield;
 
 static int8_t construct_sectors(Minefield * m);
-static Tile * uncover_tile(Minefield * minefield, uint64_t x, uint64_t y);
 static int8_t solo_sector(Tile * t);
 static int8_t multi_sector(Minefield * m, int64_t x, int64_t y);
 static int8_t add_tile(Sector * s, Tile * t);
 void free_minefield(Minefield * m);
 static void free_tile(Tile * t);
 static void free_sector(Sector * s);
-static Tile * uncover_tile(Minefield * minefield, uint64_t x, uint64_t y);
 
 
 Minefield * create_minefield(int64_t cols, int64_t rows, int64_t mines, int64_t players)
@@ -461,7 +459,6 @@ int8_t check_win_state(Minefield * m, EndGameStruct * es)
 	  sort_scores(pscores, players);
 	  update_scores_to_ids(pids, pscores, players);
 	  if (pscores[0][1] > utiles + pscores[1][1] || pleft == 1) {
-	       printf("%d > %d \n", (int) pscores[0][1] , (int) utiles + pscores[1][1]);
 	       es->winner_id = pscores[0][0];
 	       es->players = get_scores(m, es->player_scores);
 	       return true;
