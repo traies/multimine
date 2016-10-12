@@ -35,6 +35,7 @@ int open_database(){
 void close_database() {
 	if (db != NULL) {
 		sqlite3_close(db);
+		db = NULL;
 	}
 }
 

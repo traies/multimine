@@ -40,6 +40,7 @@ typedef struct ClientPthreads
 	int w_fd;
 	int8_t * attr_killflag;
 	int8_t * info_killflag;
+	Connection * con;
 } ClientPthreads;
 
 int64_t update_scores(Minefield * m, UpdateStruct * us )
@@ -85,7 +86,7 @@ void * attend(void * a)
 	timeout.tv_sec = 1;
 	timeout.tv_usec = 0;
 	/* expects blocking read */
-	while (true) {
+	while (!*killflag) {
 		if ((len = receive(con, buf, recv_buf, buf_size, &timeout)) > 0) {
 			write(w_fd, buf, len);
 		}
@@ -160,7 +161,6 @@ void * inform(void * a)
 			FD_SET(r_fd, &fds);
 		}
 	}
-	mm_disconnect(con);
 	free(killflag);
 	pthread_exit(0);
 }
@@ -208,6 +208,7 @@ int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set,
 	cli_p->p_info = pt_info;
 	cli_p->r_fd = attr_fd[0];
 	cli_p->w_fd = info_fd[1];
+	cli_p->con = con;
 	FD_SET(attr_fd[0], r_set);
 	FD_SET(info_fd[1], w_set);
 	cli_arr[count] = cli_p;
@@ -290,7 +291,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize,
 		FD_SET(pths[i]->r_fd, &r_set);
 	}
 	nfds++;
-	open_database();
+
 	while(!q && pleft > 0)  {
 		/* select on pthreads read */
 		sflag = select(nfds, &r_set, NULL, NULL, &timeout);
@@ -412,7 +413,6 @@ int64_t attend_requests(Minefield * minef, int64_t msize,
 	free(us);
 	free(data_struct);
 	free(highscore_struct);
-	close_database();
 	free_minefield(minef);
 	for (int i = 0; i < players; i++) {
 		if (pths[i] != NULL) {
@@ -420,6 +420,9 @@ int64_t attend_requests(Minefield * minef, int64_t msize,
 			pthread_join(pths[i]->p_attr, NULL);
 			*pths[i]->info_killflag = true;
 			pthread_join(pths[i]->p_info, NULL);
+			mm_disconnect(pths[i]->con);
+			free(pths[i]);
+			pths[i] = NULL;
 		}
 	}
 	return 0;
@@ -464,25 +467,32 @@ int64_t host_game(ClientPthreads * pths[8], int64_t players, int64_t rows,
 
 	/* attend requests */
 	ret = attend_requests(minef, rows * cols, pths , players,mqd);
-
-	for (int i = 0; i < players; i++) {
-		if (pths[i] == NULL) {
-			continue;
-		}
-		free(pths[i]);
-		pths[i] = NULL;
-	}
 	return ret;
-}
-
-void srv_exit()
-{
-	printf("exit \n");
-	return;
 }
 
 static ClientPthreads * pths[8];
 static int cli_i = 0;
+static Listener * lp = NULL;
+void srv_exit()
+{
+	for (int i = 0; i < cli_i; i++) {
+		if (pths[i] != NULL) {
+			*pths[i]->attr_killflag = true;
+			pthread_join(pths[i]->p_attr, NULL);
+			*pths[i]->info_killflag = true;
+			pthread_join(pths[i]->p_info, NULL);
+			mm_disconnect(pths[i]->con);
+			free(pths[i]);
+			pths[i] = NULL;
+		}
+	}
+	close_database();
+	if (lp != NULL) {
+		mm_disconnect_listener(lp);
+	}
+	exit(0);
+	return;
+}
 
 int main(int argc, char * argv[])
 {
@@ -493,7 +503,6 @@ int main(int argc, char * argv[])
 	int count, players;
 
 	signal(SIGINT, srv_exit);
-	Listener * lp = NULL;
 
 	if (argc > 1) {
 
@@ -550,9 +559,9 @@ int main(int argc, char * argv[])
 			count++;
 			cli_i++;
 		}
-
+		open_database();
 		mm_disconnect_listener(lp);
-
+		lp = NULL;
 		if (count < players) {
 			/* connections failed */
 			return -1;
@@ -560,6 +569,8 @@ int main(int argc, char * argv[])
 
 		host_game(pths, players, rows, cols, mines,mqd);
 		cli_i = 0;
+
 	}
+	close_database();
 	return 0;
 }
