@@ -374,10 +374,11 @@ int main(int argc, char *argv[])
 			 draw_tile(win, y-1, x-1, 0, 1);
 			 marks--;
 		    }
-        if(!highscores_on)
+        if(!highscores_on){
 		    update_marks(win_side, marks);
 		    wmove(win,y,x);
 	       }
+       }
 	       break;
 	  case KEY_UP:
 	       y = max(1,y-1);
@@ -433,9 +434,10 @@ int main(int argc, char *argv[])
 			 auxp = us->tiles[i].player;
 			 if (mine_buffer[auxx][auxy][0] == 10) {
 			      marks--;
-            if(!highscores_on)
-			      update_marks(win_side,marks);
-			      wmove(win,y,x);
+            if(!highscores_on){
+  			      update_marks(win_side,marks);
+  			      wmove(win,y,x);
+            }
 			 }
 			 if (auxn == 9) {
 			      if (auxp == player_id) {
@@ -502,6 +504,7 @@ int main(int argc, char *argv[])
 	  nanosleep(&diff_frame_time,NULL);
 	  wrefresh(win);
      }
+   
      /* enable blocking getch() */
      timeout(-1);
      current_utc_time(&end);
@@ -510,8 +513,7 @@ int main(int argc, char *argv[])
       win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
       wmove(win_side,1,1);
 
-
-          if(win_flag){
+      if(win_flag){
         int time = (end.tv_sec - init.tv_sec);
           char nombre[100] = " ";char d;
           int j = 0;
@@ -548,7 +550,7 @@ int main(int argc, char *argv[])
 
         wprintw(win_side, "PRESS ENTER TO EXIT");
         wrefresh(win_side);
-     }else{
+     } else{
         wmove(win_side,i+2,1);
        wprintw(win_side, "YOU LOSE!");
        wmove(win_side,i+3,1);
@@ -565,6 +567,7 @@ int main(int argc, char *argv[])
      while(getch()!='\n');
      cli_exit("termino el juego\n");
      return 0;
+
 }
 
 
