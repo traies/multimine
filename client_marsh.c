@@ -46,6 +46,18 @@ static int64_t init_unmarsh(InitStruct ** is, int8_t buf[])
      (*is)->players = *buf++;
      return sizeof(InitStruct);
 }
+
+static int64_t busy_unmarsh(BusyStruct ** bs, int8_t buf[])
+{
+	*bs = calloc(1, sizeof(BusyStruct));
+	if (!*bs) {
+		return -1;
+	}
+	buf++;
+	(*bs)->length = buf[0];
+	memcpy((*bs)->message, &buf[1], (*bs)->length);
+	return 0;
+}
 static int64_t update_unmarsh(char data_struct[], int8_t buf[])
 {
      UpdateStruct * us;
@@ -125,7 +137,7 @@ int64_t send_highscore(Connection * c,Highscore * h)
   return send(c, (void *) h, (int64_t (*) (void *, const void *))highscore_marsh);
 }
 
-int8_t receive_init(Connection * c,InitStruct ** data_struct, struct timeval * timeout, int64_t tries)
+int8_t receive_init(Connection * c,void ** data_struct, struct timeval * timeout, int64_t tries)
 {
      static int8_t buf[MAX_BUF_SIZE];
      struct timeval taux;
@@ -152,16 +164,17 @@ int8_t receive_init(Connection * c,InitStruct ** data_struct, struct timeval * t
 	  return DISCONNECT;
      }
      if (buf[0] == INITGAME) {
-	  if (init_unmarsh(data_struct, buf) > 0){
+	  if (init_unmarsh((InitStruct **) data_struct, buf) > 0){
 	       ret = INITGAME;
 	  }
-	  else {
-	       ret = ERROR;
+      }
+	  else if (buf[0] == BUSYSERVER){
+		  busy_unmarsh((BusyStruct **) data_struct, buf);
+	       ret = BUSYSERVER;
 	  }
-     }
-     else {
-	  ret = ERROR;
-     }
+	 else {
+		ret = ERROR;
+	  }
      return ret;
 }
 

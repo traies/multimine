@@ -88,24 +88,31 @@ void mm_disconnect_listener(Listener * l) {
 	free(l);
 }
 
-int mm_select(Connection * c, struct timeval * timeout){
-  fd_set r_set;
-  int ret;
-  if (c == NULL){
+static int sel(int fd, struct timeval * timeout)
+{
+	fd_set r_set;
+    int ret;
+    FD_ZERO(&r_set);
+    FD_SET(fd, &r_set);
+    ret = select(fd + 1, &r_set, NULL, NULL, timeout);
+    if (ret == 0) {
+         return 0;
+    }
+    if (ret > 0) {
+         return FD_ISSET(fd, &r_set);
+    }
     return -1;
-  }
-  FD_ZERO(&r_set);
-  FD_SET(c->fd, &r_set);
-  ret = select(c->fd + 1, &r_set, NULL, NULL, timeout);
-  if (ret == 0) {
-       return 0;
-  }
-  if (ret > 0) {
-       return FD_ISSET(c->fd, &r_set);
-  }
-  return -1;
 }
 
+int mm_select(Connection * c, struct timeval * timeout)
+{
+	return sel(c->fd, timeout);
+}
+
+int mm_select_accept(Listener * l, struct timeval * timeout)
+{
+	return sel(l->l_fd, timeout);
+}
 
 Connection * mm_accept(Listener_p l){
   listen(l->l_fd,1);

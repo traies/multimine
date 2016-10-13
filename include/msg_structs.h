@@ -12,7 +12,7 @@ extern const int8_t NOREAD;
 extern const int8_t ERROR;
 extern const int8_t HIGHSCORES;
 extern const int8_t HIGHSCORE_ADD;
-
+extern const int8_t BUSYSERVER;
 
 
 typedef struct Highscore
@@ -57,5 +57,11 @@ typedef struct UpdateStruct
 	  int8_t player;
      } tiles [];
 } UpdateStruct;
+
+typedef struct BusyStruct
+{
+	uint8_t length;
+	char message[256];
+} BusyStruct;
 
 #endif

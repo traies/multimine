@@ -41,6 +41,8 @@ void mm_disconnect(Connection * c);
 void mm_disconnect_listener(Listener * lp);
 
 int mm_select(Connection * c, struct timeval * timeout);
+
+int mm_select_accept(Listener * l, struct timeval * timeout);
 /*
 ** Waits for connections at the given listening port.
 */

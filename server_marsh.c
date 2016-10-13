@@ -63,6 +63,13 @@ static int64_t highscore_marsh(char buf[], const Highscore * h)
 	return 1 + sizeof(Highscore)*i;
 }
 
+static int64_t busy_marsh(char buf[], const BusyStruct * bs)
+{
+	*buf++ = BUSYSERVER;
+	*buf++ = bs->length;
+	memcpy(buf, bs->message, bs->length);
+	return 1 + 1 + bs->length;
+}
 static int64_t send(Connection * c, void * data, int64_t (*marsh)(void*, const void*))
 {
 	int len;
@@ -93,7 +100,10 @@ int64_t send_highscore(Connection * c,Highscore * h)
 {
 	return send(c, (void *) h, (int64_t (*) (void *, const void *)) highscore_marsh);
 }
-
+int64_t send_busy(Connection * c, BusyStruct * bs)
+{
+	return send(c, (void *) bs, (int64_t (*) (void *, const void *)) busy_marsh);
+}
 int64_t query_unmarsh(int8_t data_struct[], int8_t buf[])
 {
 	QueryStruct * qs = (QueryStruct *) &data_struct[1];

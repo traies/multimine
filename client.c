@@ -194,8 +194,10 @@ int main(int argc, char *argv[])
      int highscores_on = 0;
      int8_t msg_type, x, y;
      EndGameStruct * es;
+	 BusyStruct * bs;
      void * t_aux;
      Highscore a;
+	 void * ptr;
 
 	/* setting fifo path */
      sprintf(fin, "/tmp/r%d", getpid());
@@ -208,14 +210,20 @@ int main(int argc, char *argv[])
 	  return 0;
      }
      printf("suscrito.\n");
-     selret = receive_init(con, &is, &timeout, 5);
+     selret = receive_init(con, &ptr, &timeout, 5);
      if (selret == INITGAME) {
+		is = (InitStruct *) ptr;
 	  printf("cols: %d rows: %d mines: %d \n", (int) is->cols, (int) is->rows, (int) is->mines);
      }
      else if (selret == NOREAD){
 	  printf("el tiempo de espera expiro.\n");
 	  return 0;
-     }
+  	}
+	else if (selret == BUSYSERVER) {
+		bs = (BusyStruct *) ptr;
+		printf("%s\n", bs->message);
+		return 0;
+	 }
      else {
 	  printf("se produjo un error\n");
 	  return 0;

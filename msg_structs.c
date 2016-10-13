@@ -10,3 +10,4 @@ const int8_t NOREAD      = 5;
 const int8_t ERROR       = 6;
 const int8_t HIGHSCORES    = 7;
 const int8_t HIGHSCORE_ADD    = 8;
+const int8_t BUSYSERVER  = 9;

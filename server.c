@@ -94,6 +94,8 @@ void * attend(void * a)
 			printf("disconnect \n");
 			break;
 		}
+		timeout.tv_sec = 1;
+		timeout.tv_usec = 0;
 	}
 	/* close fd to main server */
 	close(w_fd);
@@ -165,7 +167,50 @@ void * inform(void * a)
 	pthread_exit(0);
 }
 
+typedef struct Greeter {
+	int8_t * greet_killflag;
+	Listener * lp;
+	pthread_mutex_t * mutex, * serv_mutex;
+} Greeter;
 
+void * greet(void * g)
+{
+	Greeter * greet = (Greeter * ) g;
+	int8_t * killflag = greet->greet_killflag;
+	struct timeval timeout;
+	pthread_mutex_t * mutex = greet->mutex;
+	pthread_mutex_t * serv_mutex = greet->serv_mutex;
+	Connection * con;
+	Listener * lp = greet->lp;
+	BusyStruct bs;
+	free(greet);
+	strcpy(bs.message, "El servidor esta ocupado.");
+	bs.length = strlen(bs.message);
+	while (!*killflag) {
+		timeout.tv_sec = 1;
+		timeout.tv_usec = 0;
+		/* lock mutex */
+		printf("bloqueo el mutex\n");
+		pthread_mutex_lock(mutex);
+		/* accept incoming connections */
+		if (mm_select_accept(lp, &timeout) > 0) {
+			/* answer with busy message */
+			printf("estoy aceptando...\n");
+			con = mm_accept(lp);
+			send_busy(con, &bs);
+			/* disconnect */
+			mm_disconnect(con);
+		}
+		/* unlock mutex */
+		printf("desbloqueo el mutex\n");
+		pthread_mutex_unlock(mutex);
+		pthread_mutex_lock(serv_mutex);
+		pthread_mutex_unlock(serv_mutex);
+	}
+	pthread_mutex_destroy(mutex);
+	free(killflag);
+	pthread_exit(0);
+}
 
 int64_t add_client(ClientPthreads * cli_arr [], fd_set * r_set, fd_set * w_set,
 	int64_t count, int * attr_nfds, int * info_nfds, Connection * con,
@@ -539,17 +584,43 @@ int main(int argc, char * argv[])
 	mqd_t mqd = mq_open("/mq",O_WRONLY);
 	mm_disconnect_listener(lp);
 
+	/* open connection */
+	addr = configuration("config",mm_commtype(),1);
+	lp=mm_listen(addr);
+	if(lp==NULL){
+		printf("fracaso\n");
+		return 0;
+	}
+	free(addr);
+
+	/* start greeter */
+	pthread_mutex_t * greet_mutex = malloc(sizeof(pthread_mutex_t));
+	pthread_mutex_t * serv_mutex = malloc(sizeof(pthread_mutex_t));
+	if (greet_mutex == NULL || serv_mutex == NULL) {
+		return -1;
+	}
+	pthread_mutex_init(greet_mutex, NULL);
+	pthread_mutex_init(serv_mutex, NULL);
+	pthread_mutex_lock(greet_mutex);
+	Greeter * greeter = malloc(sizeof(Greeter));
+	if (greeter == NULL) {
+		return -1;
+	}
+	int8_t * greet_killflag = malloc(sizeof(int8_t));
+	if (greet_killflag == NULL) {
+		return -1;
+	}
+	*greet_killflag = false;
+	greeter->greet_killflag = greet_killflag;
+	greeter->lp = lp;
+	greeter->mutex = greet_mutex;
+	greeter->serv_mutex = serv_mutex;
+	pthread_t p_greet;
+	pthread_create(&p_greet, NULL, greet, greeter);
+
 	while (true) {
-		/* open connection */
-		addr = configuration("config",mm_commtype(),1);
-		count=0;
-		lp=mm_listen(addr);
-		if(lp==NULL){
-			printf("fracaso\n");
-			return 0;
-		}
-		free(addr);
 		/* wait for connections */
+		count = 0;
 		while ( count < players && (c = mm_accept(lp)) != NULL) {
 			/* established conection on c, needs to create thread */
 			printf("conexion establecida. Creando thread.\n");
@@ -559,18 +630,21 @@ int main(int argc, char * argv[])
 			count++;
 			cli_i++;
 		}
-		open_database();
-		mm_disconnect_listener(lp);
-		lp = NULL;
+
 		if (count < players) {
 			/* connections failed */
 			return -1;
 		}
-
+		pthread_mutex_unlock(greet_mutex);
 		host_game(pths, players, rows, cols, mines,mqd);
 		cli_i = 0;
-
+		printf("me voy a desbloquear\n");
+		pthread_mutex_lock(serv_mutex);
+		pthread_mutex_lock(greet_mutex);
+		pthread_mutex_unlock(serv_mutex);
+		printf("me desbloquie.\n");
 	}
+	mm_disconnect_listener(lp);
 	close_database();
 	return 0;
 }
