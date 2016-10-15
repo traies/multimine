@@ -34,6 +34,9 @@ WINDOW * create_window(uint64_t h, uint64_t w, uint64_t sy, uint64_t sx)
 {
 	WINDOW * win;
 	win = newwin(h, w, sy, sx);
+	if (win == NULL) {
+		return NULL;
+	}
 	wattrset(win, COLOR_PAIR(1));
 	box(win, 0, 0);
 	wmove(win,1,1);
@@ -170,7 +173,7 @@ int main(int argc, char *argv[])
 {
 	char * srv_addr;
 	srv_addr=configuration("config",mm_commtype(),0);
-	int64_t rows, cols, mines, players, player_id, us_size;
+	int64_t rows, cols, mines, players, player_id;
 	int64_t player_scores[8];
 	QueryStruct qs;
 	UpdateStruct  * us;
@@ -188,7 +191,7 @@ int main(int argc, char *argv[])
 	int8_t win_flag = FALSE, loose_flag = FALSE, quit_flag = FALSE;
 	struct timespec init_frame_time, end_frame_time, diff_frame_time,init,end;
 	struct timeval select_timeout;
-	int64_t (** mine_buffer)[2] = NULL, (*mine_buffer_aux)[3][2] = NULL;
+	int64_t (** mine_buffer)[2] = NULL;
 	WINDOW * win, * win_side;
 	int i;
 	int highscores_on = 0;
@@ -236,8 +239,6 @@ int main(int argc, char *argv[])
 	player_id = is->player_id;
 	free(is);
 
-	us_size = sizeof(UpdateStruct) + cols * rows * 4;
-	us = malloc(us_size);
 	data_size = sizeof(UpdateStruct) + cols * rows * 4 + 1;
 	data_struct = malloc(data_size);
 	if (!data_struct) {
@@ -245,16 +246,15 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 	mine_buffer = malloc(sizeof( int64_t * [2]) * (cols));
-	mine_buffer_aux = malloc(sizeof(int64_t[3][2]) * (rows) * (cols));
 	utiles = (cols) * (rows) - mines;
 	total_tiles = cols * rows - mines;
-	if (!us || !mine_buffer || !mine_buffer_aux){
+	if (!mine_buffer){
 		return -1;
 	}
 
 	do{
 		t_aux = mine_buffer[auxi] = malloc(sizeof(int64_t[2]) * (rows));
-	} while (t_aux && mine_buffer[auxi] && auxi++ < (cols));
+	} while (t_aux && mine_buffer[auxi] && ++auxi < (cols));
 	if (!t_aux) {
 		printf("fracaso en %d \n", (int)auxi);
 		return -1;
@@ -513,12 +513,11 @@ int main(int argc, char *argv[])
 
 	wclear(win_side);
 	win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
-	wmove(win_side,1,1);
-
 	if(win_flag){
 		int time = (end.tv_sec - init.tv_sec);
 		char nombre[100] = " ";char d;
 		int j = 0;
+		wmove(win_side,1,1);
 		wprintw(win_side,"YOU WIN!");
 		wmove(win_side,2,1);
 		wprintw(win_side,"Su tiempo es : %d",time);
@@ -554,18 +553,23 @@ int main(int argc, char *argv[])
 		wrefresh(win_side);
 	}
 	else{
-		wmove(win_side,i+2,1);
+		wmove(win_side,1,1);
 		wprintw(win_side, "YOU LOSE!");
-		wmove(win_side,i+3,1);
+		wmove(win_side,2,1);
 		wprintw(win_side, "PRESS ENTER TO EXIT!");
+		wrefresh(win_side);
 		if(players == 1){
 			sprintf(a.name," ");
 			a.score = -1;
 			//send_highscore(con,&a);
 		}
 	}
-
-	wrefresh(win_side);
+	mm_disconnect(con);
+	free(data_struct);
+	for (int i = 0; i < cols; i++) {
+		free(mine_buffer[i]);
+	}
+	free(mine_buffer);
 	timeout(-1);
 	while(getch()!='\n');
 	cli_exit("termino el juego\n");
