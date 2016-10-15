@@ -63,6 +63,7 @@ Connection * mm_connect(char * addr){
   }
   char tmp[64];
   strcpy(tmp,addr);
+  free(addr);
   char * dir = strtok(tmp,":");
   char * port = strtok(NULL,":");
   memset(&sa,0,sizeof(sa));

@@ -580,7 +580,7 @@ int main(int argc, char * argv[])
 		mm_read(c,(int8_t *) msg,strlen("got_connected")+1);
 	}
 	mm_disconnect(c);
-	free(addr);
+	
 	mqd_t mqd = mq_open("/mq",O_WRONLY);
 	mm_disconnect_listener(lp);
 
@@ -591,7 +591,6 @@ int main(int argc, char * argv[])
 		printf("fracaso\n");
 		return 0;
 	}
-	free(addr);
 
 	/* start greeter */
 	pthread_mutex_t * greet_mutex = malloc(sizeof(pthread_mutex_t));

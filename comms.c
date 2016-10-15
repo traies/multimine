@@ -50,7 +50,7 @@ struct connection {
   int r_fd;
 };
 
-static int64_t write_msg(int w_fd,const char * m,int64_t type,int64_t size);
+static int64_t write_msg(int w_fd,const int8_t * m,int64_t type,int64_t size);
 static int64_t write_conn_msg(int w_fd,const char * m,int64_t size);
 static Connection * newConnection(int w,int r);
 static Listener * newListener(int fd,char * p);
@@ -111,10 +111,10 @@ Connection * mm_connect(char * addr){
 	   read(r,(char *)buf,sizeof(Message));
 	   Message * msg = (Message *) buf;
        if(msg->type==ACK_CONN_PCK){
-		       puts("fifo");
-        c = newConnection(w,r);
-        free(buf);
-        return c;
+			puts("fifo\n");
+			c = newConnection(w,r);
+			free(buf);
+			return c;
        }
   }
   free(buf);
@@ -135,15 +135,15 @@ void mm_disconnect(Connection * c){
 void mm_disconnect_listener(Listener * l) {
      close(l->l_fd);
      remove(l->addr);
-     free(l);
+     free(l->addr);
 }
 
-int64_t mm_write(Connection * c,const char * m,int64_t size){
+int64_t mm_write(Connection * c,const int8_t * m,int64_t size){
   return write_msg(c->w_fd,m,NORMAL_PCK,size);
 }
 
 
-static int64_t write_msg(int w_fd,const char * m,int64_t type,int64_t size){
+static int64_t write_msg(int w_fd,const int8_t * m,int64_t type,int64_t size){
 
   Message msg;
   memset(&msg,0,sizeof(Message));
@@ -176,7 +176,7 @@ Connection * mm_accept(Listener_p l){
   ConnectionMessage * m = (ConnectionMessage *)msg;
   char * buf = malloc(m->size);
   memcpy(buf,m->data,m->size);
-  int w_fd,i,r_fd;
+  int w_fd,r_fd;
   w_fd= open(buf,O_WRONLY);
   r_fd= open(buf+strlen(buf)+1,O_RDONLY);
   if (w_fd < 0 || r_fd < 0) {
@@ -189,25 +189,33 @@ Connection * mm_accept(Listener_p l){
   return c;
 }
 
-int mm_select(Connection * c, struct timeval * timeout)
+static int sel(int fd, struct timeval * timeout)
 {
-     fd_set r_set;
-     int ret;
-     if (c == NULL) {
-	  return -1;
-     }
-     FD_SET(c->r_fd, &r_set);
-     ret = select(c->r_fd + 1, &r_set, NULL, NULL, timeout);
-     if (ret == 0) {
-          return 0;
-     }
-     if (ret > 0) {
-	  return FD_ISSET(c->r_fd, &r_set);
-     }
-     return -1;
+	fd_set r_set;
+    int ret;
+    FD_ZERO(&r_set);
+    FD_SET(fd, &r_set);
+    ret = select(fd + 1, &r_set, NULL, NULL, timeout);
+    if (ret == 0) {
+         return 0;
+    }
+    if (ret > 0) {
+         return FD_ISSET(fd, &r_set);
+    }
+    return -1;
 }
 
-int64_t mm_read(Connection * c, char buf[], int64_t size)
+int mm_select(Connection * c, struct timeval * timeout)
+{
+     return sel(c->r_fd, timeout);
+}
+
+int mm_select_accept(Listener * lp, struct timeval * timeout)
+{
+     return sel(lp->l_fd, timeout);
+}
+
+int64_t mm_read(Connection * c, int8_t buf[], int64_t size)
 {
     int64_t len, total_len = 0, r_len;
     Message m;
