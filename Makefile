@@ -1,5 +1,5 @@
 CC=gcc  -g -Wall -Werror -std=c99
-LIBS=-lncurses -pthread 
+LIBS=-lncurses -pthread
 COMMS = commsS_TCP.c
 COMMON_SRC= $(COMMS) configurator.c  msg_structs.c
 COMMON_OBJ= $(COMMON_SRC:.c=.o)
@@ -27,7 +27,7 @@ $(BIN_MQ): $(COMMON_OBJ) $(MQ_OBJ)
 		$(CC) -o $(BIN_MQ) $(MQ_OBJ) $(COMMON_OBJ) $(LIBS) -lrt
 
 $(BIN_SERVER): $(COMMON_OBJ) $(SERVER_OBJ)
-	$(CC) -o $(BIN_SERVER) $(SERVER_OBJ) $(COMMON_OBJ)  $(LIBS) -lrt -lm -l sqlite3
+	$(CC) -o $(BIN_SERVER) $(SERVER_OBJ) $(COMMON_OBJ)  $(LIBS) -lrt -lm -l sqlite3 -DTHREADSAFE=1
 
 
 

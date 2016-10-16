@@ -487,7 +487,7 @@ int main(int argc, char *argv[])
 				got_end_highscores = TRUE;
 			}else{
 				wmove(win_side,i+1,1);
-				wprintw(win_side,"Presione H para volver");			
+				wprintw(win_side,"Presione H para volver");
 			}
 			wrefresh(win_side);
 		}
@@ -572,7 +572,7 @@ int main(int argc, char *argv[])
 		if(players == 1){
 			sprintf(a.name," ");
 			a.score = -1;
-			//send_highscore(con,&a);
+			send_highscore(con,&a);
 		}
 	}
 	mm_disconnect(con);

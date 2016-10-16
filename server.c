@@ -28,7 +28,7 @@
 #define FALSE 0
 #define COLS 50
 #define ROWS 20
-#define MINES 1
+#define MINES 100
 #define BUF_SIZE 50000
 #define DEFAULT_PLAYERS 1
 
@@ -101,7 +101,7 @@ void * attend(void * a)
 	close(w_fd);
 	free(buf);
 	free(recv_buf);
-	free(killflag);
+	//free(killflag);
 	pthread_exit(0);
 }
 
@@ -438,7 +438,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize,
 			else if (h_add_flag){
 				h = (Highscore *)&data_struct[1];
 				if(h[0].score > 0) {
-					//insert_highscore(h[0].name,h[0].score);
+					insert_highscore(h[0].name,h[0].score);
 					q = true;
 				}
 			}
@@ -619,6 +619,7 @@ int main(int argc, char * argv[])
 	greeter->serv_mutex = serv_mutex;
 	pthread_t p_greet;
 	pthread_create(&p_greet, NULL, greet, greeter);
+	close_database();
 	open_database();
 	while (true) {
 		/* wait for connections */
