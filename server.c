@@ -101,7 +101,6 @@ void * attend(void * a)
 	close(w_fd);
 	free(buf);
 	free(recv_buf);
-	//free(killflag);
 	pthread_exit(0);
 }
 
@@ -163,7 +162,6 @@ void * inform(void * a)
 			FD_SET(r_fd, &fds);
 		}
 	}
-	free(killflag);
 	pthread_exit(0);
 }
 
@@ -395,10 +393,14 @@ int64_t attend_requests(Minefield * minef, int64_t msize,
 						mq_send(mqd,msg,strlen(msg)+1,WARNING_PR);
 						reset_score(minef, i);
 						close(pths[i]->w_fd);
-						FD_CLR(pths[i]->r_fd, &r_set);
+						pthread_join(pths[i]->p_info, NULL);
+						free(pths[i]->info_killflag);
+						free(pths[i]->attr_killflag);
+						free(pths[i]);
 						free(pths[i]);
 						pths[i] = NULL;
 						pleft--;
+						FD_CLR(pths[i]->r_fd, &r_set);
 					}
 				}
 				else {
@@ -469,6 +471,8 @@ int64_t attend_requests(Minefield * minef, int64_t msize,
 			*pths[i]->info_killflag = true;
 			pthread_join(pths[i]->p_info, NULL);
 			mm_disconnect(pths[i]->con);
+			free(pths[i]->attr_killflag);
+			free(pths[i]->info_killflag);
 			free(pths[i]);
 			pths[i] = NULL;
 		}
