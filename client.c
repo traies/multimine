@@ -188,12 +188,12 @@ int main(int argc, char *argv[])
 	int64_t c, win_h, win_w, count = 0, auxi = 0, marks = 0;
 	int8_t auxx, auxy, auxn, auxp;
 	int64_t utiles = 0, total_tiles;
-	int8_t win_flag = FALSE, loose_flag = FALSE, quit_flag = FALSE;
+	int8_t win_flag = FALSE, loose_flag = FALSE, quit_flag = FALSE,got_end_highscores = FALSE;
 	struct timespec init_frame_time, end_frame_time, diff_frame_time,init,end;
 	struct timeval select_timeout;
 	int64_t (** mine_buffer)[2] = NULL;
 	WINDOW * win, * win_side;
-	int i;
+	int i=2;
 	int highscores_on = 0;
 	int8_t msg_type, x, y;
 	EndGameStruct * es;
@@ -328,7 +328,7 @@ int main(int argc, char *argv[])
 	/* enable non-blocking getch with delay */
 	timeout(5);
 	current_utc_time(&init);
-	while(!win_flag && !quit_flag &&!loose_flag) {
+	while(!got_end_highscores && !quit_flag ) {
 		current_utc_time(&init_frame_time);
 		select_timeout.tv_sec = 0;
 		select_timeout.tv_usec = 5000L;
@@ -482,8 +482,13 @@ int main(int argc, char *argv[])
 				wprintw(win_side,"%s %d",h[j].name,h[j].score);//print scores
 				j++;
 			}
-			wmove(win_side,i+1,1);
-			wprintw(win_side,"Presione H para volver");
+
+			if(win_flag || loose_flag){
+				got_end_highscores = TRUE;
+			}else{
+				wmove(win_side,i+1,1);
+				wprintw(win_side,"Presione H para volver");			
+			}
 			wrefresh(win_side);
 		}
 		else if (msg_type == ENDGAME) {
@@ -500,6 +505,7 @@ int main(int argc, char *argv[])
 			else {
 				loose_flag= 1;
 			}
+			send_h_query(con);
 		}
 		current_utc_time(&end_frame_time);
 		time_diff(&diff_frame_time,&init_frame_time,&end_frame_time);
@@ -511,51 +517,56 @@ int main(int argc, char *argv[])
 	timeout(-1);
 	current_utc_time(&end);
 
-	wclear(win_side);
-	win_side = create_window(win_h, 24, (LINES - win_h) / 2, (COLS - win_w - 24) / 2 + (win_w + 24 / 2) - 12);
+
+
+
 	if(win_flag){
 		int time = (end.tv_sec - init.tv_sec);
 		char nombre[100] = " ";char d;
 		int j = 0;
-		wmove(win_side,1,1);
+		i+=2;
+		wmove(win_side,i++,1);
 		wprintw(win_side,"YOU WIN!");
-		wmove(win_side,2,1);
+		wmove(win_side,i++,1);
 		wprintw(win_side,"Su tiempo es : %d",time);
-		wmove(win_side,3,1);
+		wmove(win_side,i++,1);
 		wprintw(win_side,"Ingrese un nombre de ");
-		wmove(win_side,4,1);
+		wmove(win_side,i++,1);
 		wprintw(win_side,"hasta 10 caracteres:");
-		wmove(win_side,6,1);
+		wmove(win_side,i++,1);
 		wrefresh(win_side);
 		while((d=toupper(getch())) != '\n' ){
-			if(d == 127 && j>0){//backspace
-				wmove(win_side,6,j);
-				wprintw(win_side," ");
-				wmove(win_side,6,j--);
-				wrefresh(win_side);
-			}
-			else if(j<10 && d != 127){
-				nombre[j++]=d;
-				wprintw(win_side,"%c",d);
-				wrefresh(win_side);
-			 }
+
+						if(d == 7 && j>0){//backspace
+							wmove(win_side,i,j);
+							wprintw(win_side," ");
+							wmove(win_side,i,j--);
+							wrefresh(win_side);
+						}
+						else if(j<10 && d != 7 && d>='A' && d<='Z'){
+							nombre[j++]=d;
+							wprintw(win_side,"%c",d);
+							wrefresh(win_side);
+						 }
+
 		}
-		wmove(win_side,10,1);
+		i++;
+		wmove(win_side,i++,1);
 		wprintw(win_side,"Se ha agregado %s",nombre);
-		wmove(win_side,11,1);
-		wprintw(win_side,"correctamente! %s",nombre);
-		wmove(win_side, 12, 1);
+		wmove(win_side,i++,1);
+		wprintw(win_side,"correctamente!" );
+		wmove(win_side, i++, 1);
 		sprintf(a.name,"%s", nombre);
 		a.score = time;
-		//send_highscore(con,&a);
+		send_highscore(con,&a);
 
 		wprintw(win_side, "PRESS ENTER TO EXIT");
 		wrefresh(win_side);
 	}
 	else{
-		wmove(win_side,1,1);
+		wmove(win_side,i++,1);
 		wprintw(win_side, "YOU LOSE!");
-		wmove(win_side,2,1);
+		wmove(win_side,i++,1);
 		wprintw(win_side, "PRESS ENTER TO EXIT!");
 		wrefresh(win_side);
 		if(players == 1){

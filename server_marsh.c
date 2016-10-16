@@ -60,7 +60,8 @@ static int64_t highscore_marsh(char buf[], const Highscore * h)
 		memcpy(buf, &h[i++], sizeof(Highscore));
 		buf+= sizeof(Highscore);
 	}
-	return 1 + sizeof(Highscore)*i;
+
+	return 1 + sizeof(Highscore)*(i+1);
 }
 
 static int64_t busy_marsh(char buf[], const BusyStruct * bs)

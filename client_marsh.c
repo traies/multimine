@@ -89,7 +89,8 @@ static int64_t highscore_unmarsh(char data_struct[], int8_t buf[])
   do{
     memcpy(h+i,buf,sizeof(Highscore));
     buf += sizeof(Highscore);
-  }while(strcmp(h[i++].name,"")!=0);
+  }while(strcmp(h[i++].name,"")!=0 );;
+
   return 1+sizeof(Highscore)*(i-1);
 }
 
