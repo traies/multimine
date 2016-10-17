@@ -375,7 +375,7 @@ int main(int argc, char *argv[])
 				wmove(win_side,18,1);
 				wprintw(win_side,"Q: Salir");
 				wrefresh(win_side);
-				wmove(win,x,y);
+				wmove(win,y,x);
 				wrefresh(win);
 				highscores_on = 0;
 			}
@@ -496,6 +496,8 @@ int main(int argc, char *argv[])
 			cli_exit("desconectado\n");
 		}
 		else if(msg_type == HIGHSCORES){
+			printf("holaa\n");
+			getchar();
 			Highscore * h = (Highscore*) &data_struct[1];
 			int j = 0;
 			wclear(win_side);
