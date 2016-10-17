@@ -438,10 +438,10 @@ int64_t attend_requests(Minefield * minef, int64_t msize,
 			}
 			else if (h_add_flag){
 				h = (Highscore *)&data_struct[1];
-				if(h[0].score > 0) {
+				if(strcmp(h[0].name," ")!= 0)
 					insert_highscore(h[0].name,h[0].score);
-					q = true;
-				}
+				q = true;
+
 			}
 			if (endflag && !h_add_flag) {
 				/* end game conditions where met */
