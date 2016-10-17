@@ -394,13 +394,12 @@ int64_t attend_requests(Minefield * minef, int64_t msize,
 						reset_score(minef, i);
 						close(pths[i]->w_fd);
 						pthread_join(pths[i]->p_info, NULL);
+						FD_CLR(pths[i]->r_fd, &r_set);
 						free(pths[i]->info_killflag);
 						free(pths[i]->attr_killflag);
 						free(pths[i]);
-						free(pths[i]);
 						pths[i] = NULL;
 						pleft--;
-						FD_CLR(pths[i]->r_fd, &r_set);
 					}
 				}
 				else {
