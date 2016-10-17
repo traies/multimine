@@ -375,6 +375,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize,
 						}
 						else if (data_struct[0] == HIGHSCORES){
 							player= i;
+
 							h_flag = true;
 						}
 						else if (data_struct[0] == HIGHSCORE_ADD){
@@ -402,11 +403,16 @@ int64_t attend_requests(Minefield * minef, int64_t msize,
 					FD_SET(pths[i]->r_fd, &r_set);
 				}
 			}
-			if(!endflag){
+			if(!endflag ){
+
 				endflag = check_win_state(minef, &es);
+				if(endflag)
+					printf("POR ALGUNA RAZON ENTRO\n" );
 			}
+
 			if (uflag) {
 				/* send updates to players */
+
 				uflag = false;
 				update_scores(minef, us);
 				msg_type = UPDATEGAME;
@@ -420,17 +426,7 @@ int64_t attend_requests(Minefield * minef, int64_t msize,
 				}
 				us->len = 0;
 			}
-			else if (h_flag){
-				int count,size;
-				h = get_highscores(&count);
-				msg_type = HIGHSCORES;
-				highscore_struct[0] = msg_type;
-				highscore_struct[1] = count;
-				size = sizeof(Highscore) *count;
-				memcpy(&highscore_struct[1+sizeof(int)], h, size);
-				write(pths[player]->w_fd, highscore_struct, size + 1);
-				h_flag = false;
-			}
+
 			else if (h_add_flag){
 				h = (Highscore *)&data_struct[1];
 				if(strcmp(h[0].name," ")!= 0)
@@ -438,9 +434,8 @@ int64_t attend_requests(Minefield * minef, int64_t msize,
 				q = true;
 
 			}
-			if (endflag && !h_add_flag) {
+			else if (endflag && !h_add_flag) {
 				/* end game conditions where met */
-
 				copy_endgame_struct(data_struct, &es, data_max_size);
 				for (int i = 0; i < players; i++) {
 					if (pths[i] == NULL) {
@@ -451,6 +446,17 @@ int64_t attend_requests(Minefield * minef, int64_t msize,
 				}
 
 
+			}
+			else if (h_flag){
+				int count,size;
+				h = get_highscores(&count);
+				msg_type = HIGHSCORES;
+				highscore_struct[0] = msg_type;
+				highscore_struct[1] = count;
+				size = sizeof(Highscore) *count;
+				memcpy(&highscore_struct[1+sizeof(int)], h, size);
+				write(pths[player]->w_fd, highscore_struct, size + 1);
+				h_flag = false;
 			}
 		}
 	}
