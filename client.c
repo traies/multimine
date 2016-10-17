@@ -322,6 +322,15 @@ int main(int argc, char *argv[])
 	update_mines(win_side, mines);
 	update_utiles(win_side, utiles);
 	update_marks(win_side, marks);
+	wmove(win_side,15,1);
+	wprintw(win_side,"H: Ver Highscores");
+	wmove(win_side,16,1);
+	wprintw(win_side,"X: Desbloquear posicion");
+	wmove(win_side,17,1);
+	wprintw(win_side,"SPACE : Marcar posicion");
+	wmove(win_side,18,1);
+	wprintw(win_side,"Q: Salir");
+	wrefresh(win_side);
 	wmove(win,y,x);
 	wrefresh(win);
 
@@ -357,6 +366,15 @@ int main(int argc, char *argv[])
 				update_utiles(win_side, utiles);
 				update_marks(win_side, marks);
 				update_scores(win_side, player_scores, players, utiles, total_tiles);
+				wmove(win_side,15,1);
+				wprintw(win_side,"H: Ver Highscores");
+				wmove(win_side,16,1);
+				wprintw(win_side,"X: Desbloquear posicion");
+				wmove(win_side,17,1);
+				wprintw(win_side,"SPACE : Marcar posicion");
+				wmove(win_side,18,1);
+				wprintw(win_side,"Q: Salir");
+				wrefresh(win_side);
 				wmove(win,x,y);
 				wrefresh(win);
 				highscores_on = 0;
@@ -411,6 +429,14 @@ int main(int argc, char *argv[])
 			update_mines(win_side, mines);
 			update_utiles(win_side, utiles);
 			update_marks(win_side, marks);
+			wmove(win_side,15,1);
+			wprintw(win_side,"H: Ver Highscores");
+			wmove(win_side,16,1);
+			wprintw(win_side,"X: Desbloquear posicion");
+			wmove(win_side,17,1);
+			wprintw(win_side,"SPACE : Marcar posicion");
+			wmove(win_side,18,1);
+			wprintw(win_side,"Q: Salir");
 			wrefresh(win_side);
 			wmove(win,y,x);
 			wrefresh(win);
