@@ -522,7 +522,7 @@ int main(int argc, char *argv[])
 
 	if(win_flag){
 		int time = (end.tv_sec - init.tv_sec);
-		char nombre[100] = " ";char d;
+		char nombre[100] = "";char d;
 		int j = 0;
 		i+=2;
 		wmove(win_side,i++,1);
@@ -552,18 +552,21 @@ int main(int argc, char *argv[])
 		}
 		i++;
 		wmove(win_side,i++,1);
-		wprintw(win_side,"Se ha agregado %s",nombre);
-		wmove(win_side,i++,1);
-		wprintw(win_side,"correctamente!" );
-		wmove(win_side, i++, 1);
-		sprintf(a.name,"%s", nombre);
-		a.score = time;
-		send_highscore(con,&a);
 
+		if(strcmp(nombre,"")!=0){
+			wprintw(win_side,"Se ha agregado %s",nombre);
+			wmove(win_side,i++,1);
+			wprintw(win_side,"correctamente!" );
+			wmove(win_side, i++, 1);
+			sprintf(a.name,"%s", nombre);
+			a.score = time;
+			send_highscore(con,&a);
+		}
 		wprintw(win_side, "PRESS ENTER TO EXIT");
 		wrefresh(win_side);
 	}
 	else{
+		i++;
 		wmove(win_side,i++,1);
 		wprintw(win_side, "YOU LOSE!");
 		wmove(win_side,i++,1);
