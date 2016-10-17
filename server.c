@@ -91,7 +91,6 @@ void * attend(void * a)
 			write(w_fd, buf, len);
 		}
 		else if (len == -1) {
-			printf("disconnect \n");
 			break;
 		}
 		timeout.tv_sec = 1;
@@ -188,19 +187,16 @@ void * greet(void * g)
 		timeout.tv_sec = 1;
 		timeout.tv_usec = 0;
 		/* lock mutex */
-		printf("bloqueo el mutex\n");
 		pthread_mutex_lock(mutex);
 		/* accept incoming connections */
 		if (mm_select_accept(lp, &timeout) > 0) {
 			/* answer with busy message */
-			printf("estoy aceptando...\n");
 			con = mm_accept(lp);
 			send_busy(con, &bs);
 			/* disconnect */
 			mm_disconnect(con);
 		}
 		/* unlock mutex */
-		printf("desbloqueo el mutex\n");
 		pthread_mutex_unlock(mutex);
 		pthread_mutex_lock(serv_mutex);
 		pthread_mutex_unlock(serv_mutex);
@@ -350,7 +346,6 @@ int64_t attend_requests(Minefield * minef, int64_t msize,
 				}
 				FD_SET(pths[i]->r_fd, &r_set);
 			}
-			printf("listening...\n");
 		}
 		else if (sflag < 0) {
 			/* an error ocurred */
@@ -644,11 +639,9 @@ int main(int argc, char * argv[])
 		pthread_mutex_unlock(greet_mutex);
 		host_game(pths, players, rows, cols, mines,mqd);
 		cli_i = 0;
-		printf("me voy a desbloquear\n");
 		pthread_mutex_lock(serv_mutex);
 		pthread_mutex_lock(greet_mutex);
 		pthread_mutex_unlock(serv_mutex);
-		printf("me desbloquie.\n");
 	}
 	mm_disconnect_listener(lp);
 	close_database();
